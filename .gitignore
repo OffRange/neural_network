@@ -109,3 +109,5 @@ Network Trash Folder
 Temporary Items
 .apdisk
 
+# Exclude png files
+*.png
