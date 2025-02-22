@@ -1,0 +1,8 @@
+[package]
+name = "nn_n"
+version = "0.1.0"
+edition = "2024"
+authors = ["Davis Wolfermann"]
+
+[dependencies]
+ndarray = "0.16.1"
