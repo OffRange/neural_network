@@ -1,7 +1,7 @@
 use crate::initializer::Initializer;
 use ndarray::{Array1, Array2};
 use ndarray_rand::RandomExt;
-use std::fmt::{Debug, UpperExp};
+use std::fmt::Debug;
 
 pub trait Layer {
     fn new<I>(n_input: usize, n_neurons: usize) -> Self
@@ -52,7 +52,7 @@ mod tests {
     }
 
     impl Distribution<f64> for ConstantDistribution {
-        fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> f64 {
+        fn sample<R: Rng + ?Sized>(&self, _rng: &mut R) -> f64 {
             self.constant
         }
     }
