@@ -43,6 +43,7 @@ impl Layer for Dense {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::assert_eq_approx;
     use ndarray::{array, Array2};
     use ndarray_rand::rand::prelude::*;
     use ndarray_rand::rand_distr::Distribution;
@@ -85,10 +86,10 @@ mod tests {
         // Since the constant initializer always returns 1.0,
         // every element in weights and biases should equal 1.0.
         for &value in layer.weights.iter() {
-            assert!((value - 1.0).abs() < 1e-10, "Expected weight to be 1.0, got {}", value);
+            assert_eq_approx!(value, 1.0, "Expected weight to be 1.0, got {}", value);
         }
         for &value in layer.biases.iter() {
-            assert!((value - 1.0).abs() < 1e-10, "Expected bias to be 1.0, got {}", value);
+            assert_eq_approx!(value, 1.0, "Expected bias to be 1.0, got {}", value);
         }
     }
 
