@@ -4,10 +4,13 @@ mod data;
 mod activation;
 mod assert;
 mod loss;
+mod metric;
+mod utils;
 
 use crate::activation::ActivationFn;
 use crate::layer::Layer;
 use crate::loss::Loss;
+use crate::metric::Metric;
 use ndarray::Axis;
 
 fn main() {
@@ -26,6 +29,10 @@ fn main() {
     let loss = loss::CategoricalCrossEntropy::default();
     let loss = loss.calculate(&layer2_out_softmax, &y.select(Axis(0), &[50, 150, 250]));
 
+    let acc = metric::MultiClassAccuracy::default();
+    let acc = acc.evaluate(&layer2_out_softmax, &y.select(Axis(0), &[50, 150, 250]));
+
+    println!("Accuracy [MultiClassAccuracy]: {:?}", acc);
     println!("Loss [CategoricalCrossEntropy]: {:?}", loss);
     println!("Layer2 out softmax:\n{:?}", layer2_out_softmax);
 }
