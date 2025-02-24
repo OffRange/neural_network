@@ -3,9 +3,11 @@ mod initializer;
 mod data;
 mod activation;
 mod assert;
+mod loss;
 
 use crate::activation::ActivationFn;
 use crate::layer::Layer;
+use crate::loss::Loss;
 use ndarray::Axis;
 
 fn main() {
@@ -17,8 +19,13 @@ fn main() {
 
     let layer_out = layer.forward(&x.select(Axis(0), &[50, 150, 250]));
     let layer_out_relu = activation::ReLU.forward(&layer_out);
+
     let layer2_out = layer2.forward(&layer_out_relu);
     let layer2_out_softmax = activation::Softmax.forward(&layer2_out);
 
+    let loss = loss::CategoricalCrossEntropy::default();
+    let loss = loss.calculate(&layer2_out_softmax, &y.select(Axis(0), &[50, 150, 250]));
+
+    println!("Loss [CategoricalCrossEntropy]: {:?}", loss);
     println!("Layer2 out softmax:\n{:?}", layer2_out_softmax);
 }
