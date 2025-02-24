@@ -1,7 +1,7 @@
 #[macro_export]
 macro_rules! assert_eq_approx {
     ($left:expr, $right:expr) => {
-        assert!(($left - $right).abs() < f64::EPSILON);
+        assert!(($left - $right).abs() < f64::EPSILON, "left: {}, right: {}", $left, $right);
     };
 
     ($left:expr, $right:expr, $($arg:tt)+) => {
