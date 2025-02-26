@@ -77,8 +77,8 @@ pub struct Softmax {
     output: Option<Array2<f64>>,
 }
 
-impl<'a> ActivationFn<'a> for Softmax {
-    fn forward(&mut self, input: ArrayView2<'a, f64>) -> Array2<f64> {
+impl ActivationFn<'_> for Softmax {
+    fn forward(&mut self, input: ArrayView2<'_, f64>) -> Array2<f64> {
         let max = input.map_axis(ndarray::Axis(1), |row| {
             row.iter().copied().reduce(f64::max).unwrap()
         }).insert_axis(ndarray::Axis(1));
@@ -96,8 +96,11 @@ impl<'a> ActivationFn<'a> for Softmax {
     ///
     /// For a softmax output S, where `S[i][j]` is the probability of the j-th class for the i-th sample,
     /// the derivative with respect to the input z is given by:
+    /// $$
     ///
     ///     ∂S[i][j] / ∂z[i][k] = S[i][j] * (δ[j][k] - S[i][k])
+    ///
+    /// $$
     ///
     /// Here, `δ[j][k]` is the Kronecker delta, which equals 1 if j = k and 0 otherwise.
     ///
