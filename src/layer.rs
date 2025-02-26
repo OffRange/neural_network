@@ -9,6 +9,17 @@ pub trait Layer {
         I: Initializer;
 
     fn forward(&self, input: &Array2<f64>) -> Array2<f64>;
+
+    /// Computes the gradient of the loss function with respect to the input of this layer,
+    /// while also updating the weights and biases of this layer.
+    ///
+    /// # Arguments
+    /// `input` - The input to this layer. This is typically the output of the previous layer.
+    ///
+    /// `value` - The gradient of the loss function with respect to the output of this layer.
+    ///
+    /// `lr` - The learning rate to use when updating the weights and biases.
+    fn backward(&mut self, input: &Array2<f64>, value: &Array2<f64>, lr: f64) -> Array2<f64>;
 }
 
 #[derive(Debug)]
@@ -19,6 +30,13 @@ pub struct Dense {
 
     /// A vector of shape (n_neurons,).
     biases: Array1<f64>,
+}
+
+#[cfg(debug_assertions)]
+impl Dense {
+    pub fn new_with_weights_and_biases(weights: Array2<f64>, biases: Array1<f64>) -> Self {
+        Self { weights, biases }
+    }
 }
 
 impl Layer for Dense {
@@ -34,9 +52,20 @@ impl Layer for Dense {
         Self { weights, biases }
     }
 
-
     fn forward(&self, input: &Array2<f64>) -> Array2<f64> {
         input.dot(&self.weights) + &self.biases
+    }
+
+    fn backward(&mut self, input: &Array2<f64>, value: &Array2<f64>, lr: f64) -> Array2<f64> {
+        let weight_grad = input.t().dot(value);
+        let bias_grad = value.sum_axis(ndarray::Axis(0));
+
+        let grad = value.dot(&self.weights.t());
+
+        self.weights = &self.weights + -lr * weight_grad;
+        self.biases = &self.biases + -lr * bias_grad;
+
+        grad
     }
 }
 
