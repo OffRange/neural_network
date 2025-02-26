@@ -46,6 +46,13 @@ impl ToOneHot<Ix> for Array1<Ix> {
     }
 }
 
+#[macro_export]
+macro_rules! expect {
+    ($t:expr) => {
+        $t.expect(concat!(stringify!($t), " was not set. Please run the forward pass first."))
+    };
+}
+
 #[cfg(test)]
 mod tests {
     use super::ToOneHot;

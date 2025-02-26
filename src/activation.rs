@@ -1,74 +1,98 @@
-use ndarray::Array2;
+use crate::expect;
+use ndarray::{Array2, ArrayView2};
 
-pub trait ActivationFn: Default {
-    fn forward(&self, input: &Array2<f64>) -> Array2<f64>;
-
-    /// Computes the gradient of the activation function with respect to the input,
+pub trait ActivationFn<'a>: Default {
+    /// Performs the forward pass for the activation function.
     ///
     /// # Arguments
-    /// `input` - The input to the activation function. This is typically the output
-    /// of the previous layer.
     ///
-    /// `value` - The gradient of the loss function with respect to the output of this layer.
-    fn backward(&self, input: &Array2<f64>, value: &Array2<f64>) -> Array2<f64>;
+    /// * `input` - An `ArrayView2<f64>` representing the input data.
+    ///
+    /// # Returns
+    ///
+    /// * An `Array2<f64>` representing the activated output.
+    fn forward(&mut self, input: ArrayView2<'a, f64>) -> Array2<f64>;
+
+    /// Performs the backward pass for the activation function.
+    ///
+    /// # Arguments
+    ///
+    /// * `d_values` - A reference to an `Array2<f64>` representing the gradient of the loss with respect to the activation output.
+    ///
+    /// # Returns
+    ///
+    /// * An `Array2<f64>` representing the gradient of the loss with respect to the activation input.
+    fn backward(&self, d_values: &Array2<f64>) -> Array2<f64>;
 }
 
 #[derive(Default)]
-pub struct ReLU;
+pub struct ReLU<'a> {
+    input: Option<ArrayView2<'a, f64>>,
+}
 
-impl ActivationFn for ReLU {
-    fn forward(&self, input: &Array2<f64>) -> Array2<f64> {
+impl<'a> ActivationFn<'a> for ReLU<'a> {
+    fn forward(&mut self, input: ArrayView2<'a, f64>) -> Array2<f64> {
+        self.input = Some(input);
         input.map(|x| x.max(0.0))
     }
 
-    fn backward(&self, input: &Array2<f64>, value: &Array2<f64>) -> Array2<f64> {
-        input.mapv(|x| if x > 0.0 { 1.0 } else { 0.0 }) * value
+    fn backward(&self, d_values: &Array2<f64>) -> Array2<f64> {
+        expect!(self.input).mapv(|x| if x > 0.0 { 1.0 } else { 0.0 }) * d_values
     }
 }
 
-pub struct LeakyReLU {
+pub struct LeakyReLU<'a> {
     alpha: f64,
+    input: Option<ArrayView2<'a, f64>>,
 }
 
-impl Default for LeakyReLU {
+impl Default for LeakyReLU<'_> {
     fn default() -> Self {
         Self::new(0.01)
     }
 }
 
-impl LeakyReLU {
+impl LeakyReLU<'_> {
     pub fn new(alpha: f64) -> Self {
         Self {
             alpha,
+            input: None,
         }
     }
 }
 
-impl ActivationFn for LeakyReLU {
-    fn forward(&self, input: &Array2<f64>) -> Array2<f64> {
+impl<'a> ActivationFn<'a> for LeakyReLU<'a> {
+    fn forward(&mut self, input: ArrayView2<'a, f64>) -> Array2<f64> {
+        self.input = Some(input);
         input.map(|&x| if x >= 0.0 { x } else { x * self.alpha })
     }
 
-    fn backward(&self, input: &Array2<f64>, value: &Array2<f64>) -> Array2<f64> {
-        input.mapv(|x| if x >= 0.0 { 1.0 } else { self.alpha }) * value
+    fn backward(&self, d_values: &Array2<f64>) -> Array2<f64> {
+        expect!(self.input).mapv(|x| if x >= 0.0 { 1.0 } else { self.alpha }) * d_values
     }
 }
 
 #[derive(Default)]
-pub struct Softmax;
+pub struct Softmax {
+    output: Option<Array2<f64>>,
+}
 
-impl ActivationFn for Softmax {
-    fn forward(&self, input: &Array2<f64>) -> Array2<f64> {
+impl<'a> ActivationFn<'a> for Softmax {
+    fn forward(&mut self, input: ArrayView2<'a, f64>) -> Array2<f64> {
         let max = input.map_axis(ndarray::Axis(1), |row| {
             row.iter().copied().reduce(f64::max).unwrap()
         }).insert_axis(ndarray::Axis(1));
 
-        let exp = (input - max).exp();
+
+        let exp = (&input - max).exp();
         let sum = exp.sum_axis(ndarray::Axis(1)).insert_axis(ndarray::Axis(1));
-        exp / sum
+        let out = exp / sum;
+        self.output = Some(out.clone());
+        out
     }
 
-    /// Computes the gradient of the activation function with respect to the input,
+
+    /// Performs the backward pass for the activation function.
     ///
     /// For a softmax output S, where `S[i][j]` is the probability of the j-th class for the i-th sample,
     /// the derivative with respect to the input z is given by:
@@ -86,14 +110,17 @@ impl ActivationFn for Softmax {
     /// - S · Sᵀ represents the outer product of the softmax vector with itself.
     ///
     /// # Arguments
-    /// `input` - The input to the activation function. This is typically the output
-    /// of the previous layer.
     ///
-    /// `value` - The gradient of the loss function with respect to the output of this layer.
-    fn backward(&self, input: &Array2<f64>, value: &Array2<f64>) -> Array2<f64> {
-        let mut gradient = Array2::<f64>::uninit(input.raw_dim());
+    /// * `d_values` - A reference to an `Array2<f64>` representing the gradient of the loss with respect to the activation output.
+    ///
+    /// # Returns
+    ///
+    /// * An `Array2<f64>` representing the gradient of the loss with respect to the activation input.
+    fn backward(&self, d_values: &Array2<f64>) -> Array2<f64> {
+        let output = expect!(self.output.as_ref());
+        let mut gradient = Array2::<f64>::uninit(output.raw_dim());
 
-        for (i, (sample_softmax_out, input_sample)) in input.outer_iter().zip(value.outer_iter()).enumerate() {
+        for (i, (sample_softmax_out, d_value_sample)) in output.outer_iter().zip(d_values.outer_iter()).enumerate() {
             // What this does is compute the Jacobian matrix of the softmax function
             // and applying the chain rule.
             // The Jacobian matrix is computed as:
@@ -103,11 +130,11 @@ impl ActivationFn for Softmax {
             // which is equivalent to:
             // d_inputs = (diag(S) - S · Sᵀ) · d_values
             // which simplifies to:
-            // d_inputs = S ⊙ input_sample - S * (S ⋅ input_sample)
+            // d_inputs = S ⊙ d_values - S * (S ⋅ d_values)
             // We do not need to transpose the S as it is a vector.
-            let dot = sample_softmax_out.dot(&input_sample);
+            let dot = sample_softmax_out.dot(&d_value_sample);
 
-            let dinputs = &sample_softmax_out * &input_sample - &sample_softmax_out * dot;
+            let dinputs = &sample_softmax_out * &d_value_sample - &sample_softmax_out * dot;
             gradient.row_mut(i).assign(&dinputs.mapv(|x| std::mem::MaybeUninit::new(x)));
         }
 
@@ -125,7 +152,7 @@ mod tests {
     fn test_relu_forward() {
         let input = ndarray::array![[1.0, -2.0], [-3.0, 4.0]];
         let expected_output = ndarray::array![[1.0, 0.0], [0.0, 4.0]];
-        let output = ReLU::default().forward(&input);
+        let output = ReLU::default().forward(input.view());
         assert_eq!(output, expected_output);
     }
 
@@ -149,7 +176,9 @@ mod tests {
             [0., 10., 11., 0.]
         ];
 
-        let d = ReLU::default().backward(&input, &dvalues);
+        let mut relu = ReLU::default();
+        let _ = relu.forward(input.view());
+        let d = relu.backward(&dvalues);
 
         assert_eq!(d, expected);
     }
@@ -158,7 +187,7 @@ mod tests {
     fn test_leaky_relu_forward() {
         let input = ndarray::array![[1.0, -2.0], [-3.0, 4.0]];
         let expected_output = ndarray::array![[1.0, -0.02], [-0.03, 4.0]];
-        let output = LeakyReLU::new(0.01).forward(&input);
+        let output = LeakyReLU::new(0.01).forward(input.view());
         assert_eq!(output, expected_output);
     }
 
@@ -182,7 +211,9 @@ mod tests {
             [0.09, 10., 11., 0.12]
         ];
 
-        let d = LeakyReLU::new(0.01).backward(&input, &dvalues);
+        let mut leaky_relu = LeakyReLU::new(0.01);
+        let _ = leaky_relu.forward(input.view());
+        let d = leaky_relu.backward(&dvalues);
 
         assert_eq!(d, expected);
     }
@@ -199,7 +230,7 @@ mod tests {
             [0.2119415576170854, 0.5761168847658291, 0.2119415576170854],
         ];
 
-        let output = Softmax::default().forward(&array);
+        let output = Softmax::default().forward(array.view());
         let sum = output.sum_axis(ndarray::Axis(1));
 
         assert_arr_eq_approx!(output, expected_output);
@@ -208,9 +239,9 @@ mod tests {
 
     #[test]
     fn test_softmax_backward() {
-        let input = ndarray::array![
-            [1.0, 2.0, 3.0],
-            [4.0, 5.0, 4.0],
+        let softmax_out = ndarray::array![
+            [5.0, 2.0, 3.0],
+            [4.0, 5.0, 1.0],
         ];
 
         let dvalues = ndarray::array![
@@ -219,11 +250,13 @@ mod tests {
         ];
 
         let expected = ndarray::array![
-            [-13., -24., -33.],
-            [-244., -300., -236.],
+            [-85.,  -32.,  -45.],
+            [-172., -210.,  -41.]
         ];
 
-        let d = Softmax::default().backward(&input, &dvalues);
+        let mut softmax = Softmax::default();
+        softmax.output = Some(softmax_out);
+        let d = softmax.backward(&dvalues);
 
         assert_arr_eq_approx!(d, expected);
     }

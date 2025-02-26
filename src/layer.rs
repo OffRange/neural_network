@@ -1,45 +1,56 @@
+use crate::expect;
 use crate::initializer::Initializer;
-use ndarray::{Array1, Array2};
+use ndarray::{Array1, Array2, ArrayView2};
 use ndarray_rand::RandomExt;
 use std::fmt::Debug;
 
-pub trait Layer {
+pub trait Layer<'a> {
     fn new<I>(n_input: usize, n_neurons: usize) -> Self
     where
         I: Initializer;
 
-    fn forward(&self, input: &Array2<f64>) -> Array2<f64>;
-
-    /// Computes the gradient of the loss function with respect to the input of this layer,
-    /// while also updating the weights and biases of this layer.
+    /// Performs the forward pass for the layer.
     ///
     /// # Arguments
-    /// `input` - The input to this layer. This is typically the output of the previous layer.
     ///
-    /// `value` - The gradient of the loss function with respect to the output of this layer.
+    /// * `input` - An `ArrayView2<f64>` representing the input data where each row is a sample.
     ///
-    /// `lr` - The learning rate to use when updating the weights and biases.
-    fn backward(&mut self, input: &Array2<f64>, value: &Array2<f64>, lr: f64) -> Array2<f64>;
+    /// # Returns
+    ///
+    /// * An `Array2<f64>` representing the output of the layer.
+    fn forward(&mut self, input: ArrayView2<'a, f64>) -> Array2<f64>;
+
+    /// Performs the backward pass for the layer.
+    ///
+    /// # Arguments
+    ///
+    /// * `d_values` - A reference to an `Array2<f64>` representing the gradient of the loss with respect to the layer's output.
+    ///
+    /// # Returns
+    ///
+    /// * An `Array2<f64>` representing the gradient of the loss with respect to the layer's input.
+    fn backward(&mut self, d_value: &Array2<f64>, lr: f64) -> Array2<f64>;
 }
 
 #[derive(Debug)]
-pub struct Dense {
+pub struct Dense<'a> {
     /// A matrix of shape (n_in, n_neurons). This allows us to skip the transpose operation during#
     /// the forward pass.
     weights: Array2<f64>,
 
     /// A vector of shape (n_neurons,).
     biases: Array1<f64>,
+    input: Option<ArrayView2<'a, f64>>,
 }
 
 #[cfg(debug_assertions)]
-impl Dense {
+impl Dense<'_> {
     pub fn new_with_weights_and_biases(weights: Array2<f64>, biases: Array1<f64>) -> Self {
-        Self { weights, biases }
+        Self { weights, biases, input: None }
     }
 }
 
-impl Layer for Dense {
+impl<'a> Layer<'a> for Dense<'a> {
     fn new<I>(n_input: usize, n_neurons: usize) -> Self
     where
         I: Initializer,
@@ -49,15 +60,16 @@ impl Layer for Dense {
         let weights = Array2::random((n_input, n_neurons), initializer.dist());
         let biases = Array1::random(n_neurons, initializer.dist());
 
-        Self { weights, biases }
+        Self { weights, biases, input: None }
     }
 
-    fn forward(&self, input: &Array2<f64>) -> Array2<f64> {
+    fn forward(&mut self, input: ArrayView2<'a, f64>) -> Array2<f64> {
+        self.input = Some(input);
         input.dot(&self.weights) + &self.biases
     }
 
-    fn backward(&mut self, input: &Array2<f64>, value: &Array2<f64>, lr: f64) -> Array2<f64> {
-        let weight_grad = input.t().dot(value);
+    fn backward(&mut self, value: &Array2<f64>, lr: f64) -> Array2<f64> {
+        let weight_grad = expect!(self.input).t().dot(value);
         let bias_grad = value.sum_axis(ndarray::Axis(0));
 
         let grad = value.dot(&self.weights.t());
@@ -124,7 +136,7 @@ mod tests {
 
     #[test]
     fn test_dense_forward() {
-        let layer = Dense::new::<ConstantInitializer>(3, 2);
+        let mut layer = Dense::new::<ConstantInitializer>(3, 2);
 
         let input: Array2<f64> = array![[1.0, 2.0, 3.0],
                                          [4.0, 5.0, 6.0]];
@@ -137,7 +149,7 @@ mod tests {
         let expected: Array2<f64> = array![[7.0, 7.0],
                                            [16.0, 16.0]];
 
-        let output = layer.forward(&input);
+        let output = layer.forward(input.view());
         assert_eq!(output, expected, "The forward pass did not produce the expected output.");
     }
 
@@ -147,11 +159,11 @@ mod tests {
     #[test]
     #[should_panic]
     fn test_forward_dimension_mismatch() {
-        let layer = Dense::new::<ConstantInitializer>(3, 2);
+        let mut layer = Dense::new::<ConstantInitializer>(3, 2);
 
         // Incorrect input shape: Only 2 columns instead of 3.
-        let input: Array2<f64> = array![[1.0, 2.0]];
-        let _ = layer.forward(&input); // Should panic
+        let input = array![[1.0, 2.0]];
+        let _ = layer.forward(input.view()); // Should panic
     }
 }
 
