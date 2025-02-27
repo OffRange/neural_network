@@ -74,3 +74,74 @@ pub fn display_spiral_dataset(
     println!("Plot saved as {}", path);
     Ok(())
 }
+
+pub(crate) fn visualize_pred<F>(data: &Array2<f64>, labels: &Array1<usize>, mut model_predict: F) -> Result<(), Box<dyn std::error::Error>>
+where
+    F: FnMut(f64, f64) -> usize,
+{
+    // Create a drawing area.
+    let root = BitMapBackend::new("decision_boundaries.png", (800, 800)).into_drawing_area();
+    root.fill(&WHITE)?;
+
+    // Setup chart. Adjust the x/y ranges according to your data.
+    let mut chart = ChartBuilder::on(&root)
+        .caption("Decision Boundaries", ("sans-serif", 30))
+        .margin(10)
+        .x_label_area_size(40)
+        .y_label_area_size(40)
+        .build_cartesian_2d(-1.5f64..1.5f64, -1.5f64..1.5f64)?;
+
+    chart.configure_mesh().draw()?;
+
+    // Define grid resolution. More grid points means smoother boundaries.
+    let resolution = 300;
+    let x_min = -1.5;
+    let x_max = 1.5;
+    let y_min = -1.5;
+    let y_max = 1.5;
+    let x_step = (x_max - x_min) / resolution as f64;
+    let y_step = (y_max - y_min) / resolution as f64;
+
+    // Draw the background. For each grid cell, compute the predicted class and fill with a light color.
+    for i in 0..resolution {
+        for j in 0..resolution {
+            let x_val = x_min + i as f64 * x_step;
+            let y_val = y_min + j as f64 * y_step;
+            let class = model_predict(x_val, y_val);
+            let color = match class {
+                0 => RGBColor(255, 200, 200), // light red
+                1 => RGBColor(200, 255, 200), // light green
+                2 => RGBColor(200, 200, 255), // light blue
+                _ => RGBColor(255, 255, 255),
+            };
+            // Draw a rectangle for each grid cell.
+            chart.draw_series(std::iter::once(Rectangle::new(
+                [(x_val, y_val), (x_val + x_step, y_val + y_step)],
+                color.filled(),
+            )))?;
+        }
+    }
+
+    // Overlay the original data points.
+    // You can use a different color or shape to visualize the actual points.
+    for (point, label) in data.outer_iter().zip(labels.iter()) {
+        let x_point = point[0];
+        let y_point = point[1];
+        let point_color = match label {
+            0 => RED,
+            1 => GREEN,
+            2 => BLUE,
+            _ => BLACK,
+        };
+        chart.draw_series(std::iter::once(Circle::new(
+            (x_point, y_point),
+            3,
+            point_color.filled(),
+        )))?;
+    }
+
+    // Save the drawing.
+    root.present()?;
+    println!("Result has been saved to decision_boundaries.png");
+    Ok(())
+}
