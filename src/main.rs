@@ -66,18 +66,18 @@ fn main() {
 
     let loss = loss::CategoricalCrossEntropy::default();
 
-    let mut optimizer = optimizer::SGD::new(1.);
+    let mut optimizer = optimizer::SGD::new(0.01, 0.0, 0.9);
 
     #[cfg(debug_assertions)]
     {
-        write_npy("weights1.npy", layer1.get_weights()).unwrap();
-        write_npy("biases1.npy", layer1.get_biases()).unwrap();
+        write_npy("weights1.npy", layer1.weights()).unwrap();
+        write_npy("biases1.npy", layer1.biases()).unwrap();
 
-        write_npy("weights2.npy", layer2.get_weights()).unwrap();
-        write_npy("biases2.npy", layer2.get_biases()).unwrap();
+        write_npy("weights2.npy", layer2.weights()).unwrap();
+        write_npy("biases2.npy", layer2.biases()).unwrap();
     }
 
-    let epochs = 10_000;
+    let epochs = 1_000_000;
     for epoch in 1..=epochs {
         // Forward
         let layer1_output = layer1.forward(&x);

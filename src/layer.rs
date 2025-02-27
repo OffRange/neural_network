@@ -1,6 +1,6 @@
 use crate::expect;
 use crate::initializer::Initializer;
-use ndarray::{Array1, Array2};
+use ndarray::{Array1, Array2, ArrayViewMut1, ArrayViewMut2};
 use ndarray_rand::RandomExt;
 use std::fmt::Debug;
 
@@ -31,10 +31,19 @@ pub trait Layer {
     /// * An `Array2<f64>` representing the gradient of the loss with respect to the layer's input.
     fn backward(&mut self, d_value: &Array2<f64>) -> Array2<f64>;
 
+    // Momentum accessors
+    fn weight_momentum(&self) -> &Array2<f64>;
+    fn weight_momentum_mut(&mut self) -> &mut Array2<f64>;
+    fn bias_momentum(&self) -> &Array1<f64>;
+    fn bias_momentum_mut(&mut self) -> &mut Array1<f64>;
 
-    fn update_params<F>(&mut self, f: F)
-    where
-        F: Fn(&Array2<f64>, &Array1<f64>, &Array2<f64>, &Array1<f64>) -> (Array2<f64>, Array1<f64>); // weights and biases.
+    // Parameter accessors
+    fn weights(&self) -> &Array2<f64>;
+    fn biases(&self) -> &Array1<f64>;
+    fn weights_mut(&mut self) -> ArrayViewMut2<f64>;
+    fn biases_mut(&mut self) -> ArrayViewMut1<f64>;
+    fn weights_gradient(&self) -> Option<&Array2<f64>>;
+    fn biases_gradient(&self) -> Option<&Array1<f64>>;
 }
 
 #[derive(Debug)]
@@ -49,20 +58,23 @@ pub struct Dense {
 
     weights_gradient: Option<Array2<f64>>,
     biases_gradient: Option<Array1<f64>>,
+
+    weight_momentum: Array2<f64>,
+    bias_momentum: Array1<f64>,
 }
 
 #[cfg(debug_assertions)]
 impl Dense {
     pub fn new_with_weights_and_biases(weights: Array2<f64>, biases: Array1<f64>) -> Self {
-        Self { weights, biases, input: None, weights_gradient: None, biases_gradient: None }
-    }
-
-    pub fn get_weights(&self) -> &Array2<f64> {
-        &self.weights
-    }
-
-    pub fn get_biases(&self) -> &Array1<f64> {
-        &self.biases
+        Self {
+            weights: weights.clone(),
+            biases: biases.clone(),
+            input: None,
+            weights_gradient: None,
+            biases_gradient: None,
+            weight_momentum: Array2::zeros(weights.raw_dim()),
+            bias_momentum: Array1::zeros(biases.raw_dim()),
+        }
     }
 }
 
@@ -76,7 +88,15 @@ impl Layer for Dense {
         let weights = Array2::random((n_input, n_neurons), initializer.dist());
         let biases = Array1::random(n_neurons, initializer.dist());
 
-        Self { weights, biases, input: None, weights_gradient: None, biases_gradient: None }
+        Self {
+            weights,
+            biases,
+            input: None,
+            weights_gradient: None,
+            biases_gradient: None,
+            weight_momentum: Array2::zeros((n_input, n_neurons)),
+            bias_momentum: Array1::zeros(n_neurons),
+        }
     }
 
     fn forward(&mut self, input: &Array2<f64>) -> Array2<f64> {
@@ -91,13 +111,45 @@ impl Layer for Dense {
         value.dot(&self.weights.t())
     }
 
-    fn update_params<F>(&mut self, f: F)
-    where
-        F: Fn(&Array2<f64>, &Array1<f64>, &Array2<f64>, &Array1<f64>) -> (Array2<f64>, Array1<f64>),
-    {
-        let (new_w, new_b) = f(&self.weights, &self.biases, expect!(self.weights_gradient.as_ref()), expect!(self.biases_gradient.as_ref()));
-        self.weights = new_w;
-        self.biases = new_b;
+    fn weight_momentum(&self) -> &Array2<f64> {
+        &self.weight_momentum
+    }
+
+    fn weight_momentum_mut(&mut self) -> &mut Array2<f64> {
+        &mut self.weight_momentum
+    }
+
+    fn bias_momentum(&self) -> &Array1<f64> {
+        &self.bias_momentum
+    }
+
+    fn bias_momentum_mut(&mut self) -> &mut Array1<f64> {
+        &mut self.bias_momentum
+    }
+
+    fn weights_mut(&mut self) -> ArrayViewMut2<f64> {
+        self.weights.view_mut()
+    }
+
+    fn biases_mut(&mut self) -> ArrayViewMut1<f64> {
+        self.biases.view_mut()
+    }
+
+
+    fn weights(&self) -> &Array2<f64> {
+        &self.weights
+    }
+
+    fn weights_gradient(&self) -> Option<&Array2<f64>> {
+        self.weights_gradient.as_ref()
+    }
+
+    fn biases(&self) -> &Array1<f64> {
+        &self.biases
+    }
+
+    fn biases_gradient(&self) -> Option<&Array1<f64>> {
+        self.biases_gradient.as_ref()
     }
 }
 
