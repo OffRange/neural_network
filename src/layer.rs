@@ -29,7 +29,12 @@ pub trait Layer {
     /// # Returns
     ///
     /// * An `Array2<f64>` representing the gradient of the loss with respect to the layer's input.
-    fn backward(&mut self, d_value: &Array2<f64>, lr: f64) -> Array2<f64>;
+    fn backward(&mut self, d_value: &Array2<f64>) -> Array2<f64>;
+
+
+    fn update_params<F>(&mut self, f: F)
+    where
+        F: Fn(&Array2<f64>, &Array1<f64>, &Array2<f64>, &Array1<f64>) -> (Array2<f64>, Array1<f64>); // weights and biases.
 }
 
 #[derive(Debug)]
@@ -41,12 +46,15 @@ pub struct Dense {
     /// A vector of shape (n_neurons,).
     biases: Array1<f64>,
     input: Option<Array2<f64>>,
+
+    weights_gradient: Option<Array2<f64>>,
+    biases_gradient: Option<Array1<f64>>,
 }
 
 #[cfg(debug_assertions)]
 impl Dense {
     pub fn new_with_weights_and_biases(weights: Array2<f64>, biases: Array1<f64>) -> Self {
-        Self { weights, biases, input: None }
+        Self { weights, biases, input: None, weights_gradient: None, biases_gradient: None }
     }
 
     pub fn get_weights(&self) -> &Array2<f64> {
@@ -68,7 +76,7 @@ impl Layer for Dense {
         let weights = Array2::random((n_input, n_neurons), initializer.dist());
         let biases = Array1::random(n_neurons, initializer.dist());
 
-        Self { weights, biases, input: None }
+        Self { weights, biases, input: None, weights_gradient: None, biases_gradient: None }
     }
 
     fn forward(&mut self, input: &Array2<f64>) -> Array2<f64> {
@@ -76,16 +84,20 @@ impl Layer for Dense {
         input.dot(&self.weights) + &self.biases
     }
 
-    fn backward(&mut self, value: &Array2<f64>, lr: f64) -> Array2<f64> {
-        let weight_grad = expect!(self.input).t().dot(value);
-        let bias_grad = value.sum_axis(ndarray::Axis(0));
+    fn backward(&mut self, value: &Array2<f64>) -> Array2<f64> {
+        self.weights_gradient = Some(expect!(self.input.as_ref()).t().dot(value));
+        self.biases_gradient = Some(value.sum_axis(ndarray::Axis(0)));
 
-        let grad = value.dot(&self.weights.t());
+        value.dot(&self.weights.t())
+    }
 
-        self.weights = &self.weights + -lr * weight_grad;
-        self.biases = &self.biases + -lr * bias_grad;
-
-        grad
+    fn update_params<F>(&mut self, f: F)
+    where
+        F: Fn(&Array2<f64>, &Array1<f64>, &Array2<f64>, &Array1<f64>) -> (Array2<f64>, Array1<f64>),
+    {
+        let (new_w, new_b) = f(&self.weights, &self.biases, expect!(self.weights_gradient.as_ref()), expect!(self.biases_gradient.as_ref()));
+        self.weights = new_w;
+        self.biases = new_b;
     }
 }
 
@@ -140,6 +152,27 @@ mod tests {
         for &value in layer.biases.iter() {
             assert_eq_approx!(value, 1.0, "Expected bias to be 1.0, got {}", value);
         }
+    }
+
+    #[test]
+    fn test_backward() {
+        let mut layer = Dense::new_with_weights_and_biases(
+            array![[-0.00177312,  0.01083391],
+                            [ 0.00998164, -0.0024269 ],
+                            [-0.00253938, -0.00447975]
+            ],
+            array![0.0, 0.0],
+        );
+
+        let input: Array2<f64> = array![[1.0, 2.0, 3.0],
+                                         [4.0, 5.0, 6.0]];
+
+        let d_values: Array2<f64> = array![[1.0, 2.0],
+                                          [3.0, 4.0]];
+
+        layer.input = Some(input.clone());
+        let a = layer.backward(&d_values);
+        println!("{:?}", layer.biases_gradient);
     }
 
     #[test]
