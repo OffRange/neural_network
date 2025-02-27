@@ -1,10 +1,10 @@
 use crate::expect;
 use crate::initializer::Initializer;
-use ndarray::{Array1, Array2, ArrayView2};
+use ndarray::{Array1, Array2};
 use ndarray_rand::RandomExt;
 use std::fmt::Debug;
 
-pub trait Layer<'a> {
+pub trait Layer {
     fn new<I>(n_input: usize, n_neurons: usize) -> Self
     where
         I: Initializer;
@@ -13,12 +13,12 @@ pub trait Layer<'a> {
     ///
     /// # Arguments
     ///
-    /// * `input` - An `ArrayView2<f64>` representing the input data where each row is a sample.
+    /// * `input` - A reference to an `Array2<f64>` representing the input data where each row is a sample.
     ///
     /// # Returns
     ///
     /// * An `Array2<f64>` representing the output of the layer.
-    fn forward(&mut self, input: ArrayView2<'a, f64>) -> Array2<f64>;
+    fn forward(&mut self, input: &Array2<f64>) -> Array2<f64>;
 
     /// Performs the backward pass for the layer.
     ///
@@ -33,24 +33,32 @@ pub trait Layer<'a> {
 }
 
 #[derive(Debug)]
-pub struct Dense<'a> {
+pub struct Dense {
     /// A matrix of shape (n_in, n_neurons). This allows us to skip the transpose operation during#
     /// the forward pass.
     weights: Array2<f64>,
 
     /// A vector of shape (n_neurons,).
     biases: Array1<f64>,
-    input: Option<ArrayView2<'a, f64>>,
+    input: Option<Array2<f64>>,
 }
 
 #[cfg(debug_assertions)]
-impl Dense<'_> {
+impl Dense {
     pub fn new_with_weights_and_biases(weights: Array2<f64>, biases: Array1<f64>) -> Self {
         Self { weights, biases, input: None }
     }
+
+    pub fn get_weights(&self) -> &Array2<f64> {
+        &self.weights
+    }
+
+    pub fn get_biases(&self) -> &Array1<f64> {
+        &self.biases
+    }
 }
 
-impl<'a> Layer<'a> for Dense<'a> {
+impl Layer for Dense {
     fn new<I>(n_input: usize, n_neurons: usize) -> Self
     where
         I: Initializer,
@@ -63,8 +71,8 @@ impl<'a> Layer<'a> for Dense<'a> {
         Self { weights, biases, input: None }
     }
 
-    fn forward(&mut self, input: ArrayView2<'a, f64>) -> Array2<f64> {
-        self.input = Some(input);
+    fn forward(&mut self, input: &Array2<f64>) -> Array2<f64> {
+        self.input = Some(input.clone());
         input.dot(&self.weights) + &self.biases
     }
 
@@ -149,7 +157,7 @@ mod tests {
         let expected: Array2<f64> = array![[7.0, 7.0],
                                            [16.0, 16.0]];
 
-        let output = layer.forward(input.view());
+        let output = layer.forward(&input);
         assert_eq!(output, expected, "The forward pass did not produce the expected output.");
     }
 
@@ -163,7 +171,7 @@ mod tests {
 
         // Incorrect input shape: Only 2 columns instead of 3.
         let input = array![[1.0, 2.0]];
-        let _ = layer.forward(input.view()); // Should panic
+        let _ = layer.forward(&input); // Should panic
     }
 }
 

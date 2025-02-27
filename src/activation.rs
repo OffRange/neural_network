@@ -1,17 +1,17 @@
 use crate::expect;
-use ndarray::{Array2, ArrayView2};
+use ndarray::Array2;
 
-pub trait ActivationFn<'a>: Default {
+pub trait ActivationFn: Default {
     /// Performs the forward pass for the activation function.
     ///
     /// # Arguments
     ///
-    /// * `input` - An `ArrayView2<f64>` representing the input data.
+    /// * `input` - A reference to an `Array2<f64>` representing the input data.
     ///
     /// # Returns
     ///
     /// * An `Array2<f64>` representing the activated output.
-    fn forward(&mut self, input: ArrayView2<'a, f64>) -> Array2<f64>;
+    fn forward(&mut self, input: &Array2<f64>) -> Array2<f64>;
 
     /// Performs the backward pass for the activation function.
     ///
@@ -26,33 +26,33 @@ pub trait ActivationFn<'a>: Default {
 }
 
 #[derive(Default)]
-pub struct ReLU<'a> {
-    input: Option<ArrayView2<'a, f64>>,
+pub struct ReLU {
+    input: Option<Array2<f64>>,
 }
 
-impl<'a> ActivationFn<'a> for ReLU<'a> {
-    fn forward(&mut self, input: ArrayView2<'a, f64>) -> Array2<f64> {
-        self.input = Some(input);
+impl ActivationFn for ReLU {
+    fn forward(&mut self, input: &Array2<f64>) -> Array2<f64> {
+        self.input = Some(input.clone());
         input.map(|x| x.max(0.0))
     }
 
     fn backward(&self, d_values: &Array2<f64>) -> Array2<f64> {
-        expect!(self.input).mapv(|x| if x > 0.0 { 1.0 } else { 0.0 }) * d_values
+        expect!(self.input.as_ref()).mapv(|x| if x > 0.0 { 1.0 } else { 0.0 }) * d_values
     }
 }
 
-pub struct LeakyReLU<'a> {
+pub struct LeakyReLU {
     alpha: f64,
-    input: Option<ArrayView2<'a, f64>>,
+    input: Option<Array2<f64>>,
 }
 
-impl Default for LeakyReLU<'_> {
+impl Default for LeakyReLU {
     fn default() -> Self {
         Self::new(0.01)
     }
 }
 
-impl LeakyReLU<'_> {
+impl LeakyReLU {
     pub fn new(alpha: f64) -> Self {
         Self {
             alpha,
@@ -61,14 +61,14 @@ impl LeakyReLU<'_> {
     }
 }
 
-impl<'a> ActivationFn<'a> for LeakyReLU<'a> {
-    fn forward(&mut self, input: ArrayView2<'a, f64>) -> Array2<f64> {
-        self.input = Some(input);
+impl ActivationFn for LeakyReLU {
+    fn forward(&mut self, input: &Array2<f64>) -> Array2<f64> {
+        self.input = Some(input.clone());
         input.map(|&x| if x >= 0.0 { x } else { x * self.alpha })
     }
 
     fn backward(&self, d_values: &Array2<f64>) -> Array2<f64> {
-        expect!(self.input).mapv(|x| if x >= 0.0 { 1.0 } else { self.alpha }) * d_values
+        expect!(self.input.as_ref()).mapv(|x| if x >= 0.0 { 1.0 } else { self.alpha }) * d_values
     }
 }
 
@@ -77,14 +77,14 @@ pub struct Softmax {
     output: Option<Array2<f64>>,
 }
 
-impl ActivationFn<'_> for Softmax {
-    fn forward(&mut self, input: ArrayView2<'_, f64>) -> Array2<f64> {
+impl ActivationFn for Softmax {
+    fn forward(&mut self, input: &Array2<f64>) -> Array2<f64> {
         let max = input.map_axis(ndarray::Axis(1), |row| {
             row.iter().copied().reduce(f64::max).unwrap()
         }).insert_axis(ndarray::Axis(1));
 
 
-        let exp = (&input - max).exp();
+        let exp = (input - max).exp();
         let sum = exp.sum_axis(ndarray::Axis(1)).insert_axis(ndarray::Axis(1));
         let out = exp / sum;
         self.output = Some(out.clone());
@@ -155,7 +155,7 @@ mod tests {
     fn test_relu_forward() {
         let input = ndarray::array![[1.0, -2.0], [-3.0, 4.0]];
         let expected_output = ndarray::array![[1.0, 0.0], [0.0, 4.0]];
-        let output = ReLU::default().forward(input.view());
+        let output = ReLU::default().forward(&input);
         assert_eq!(output, expected_output);
     }
 
@@ -180,7 +180,7 @@ mod tests {
         ];
 
         let mut relu = ReLU::default();
-        let _ = relu.forward(input.view());
+        let _ = relu.forward(&input);
         let d = relu.backward(&dvalues);
 
         assert_eq!(d, expected);
@@ -190,7 +190,7 @@ mod tests {
     fn test_leaky_relu_forward() {
         let input = ndarray::array![[1.0, -2.0], [-3.0, 4.0]];
         let expected_output = ndarray::array![[1.0, -0.02], [-0.03, 4.0]];
-        let output = LeakyReLU::new(0.01).forward(input.view());
+        let output = LeakyReLU::new(0.01).forward(&input);
         assert_eq!(output, expected_output);
     }
 
@@ -215,7 +215,7 @@ mod tests {
         ];
 
         let mut leaky_relu = LeakyReLU::new(0.01);
-        let _ = leaky_relu.forward(input.view());
+        let _ = leaky_relu.forward(&input);
         let d = leaky_relu.backward(&dvalues);
 
         assert_eq!(d, expected);
@@ -233,7 +233,7 @@ mod tests {
             [0.2119415576170854, 0.5761168847658291, 0.2119415576170854],
         ];
 
-        let output = Softmax::default().forward(array.view());
+        let output = Softmax::default().forward(&array);
         let sum = output.sum_axis(ndarray::Axis(1));
 
         assert_arr_eq_approx!(output, expected_output);
