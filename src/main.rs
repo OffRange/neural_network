@@ -65,7 +65,7 @@ fn main() {
 
     let loss = loss::CategoricalCrossEntropy::default();
 
-    let mut optimizer = optimizer::SGD::new(0.01, 0.0, 0.9);
+    let mut optimizer = optimizer::AdaGrad::new(0.1, 1e-4, 1e-7);
 
     #[cfg(debug_assertions)]
     {
@@ -76,7 +76,7 @@ fn main() {
         write_npy("biases2.npy", layer2.biases()).unwrap();
     }
 
-    let epochs = 1_000_000;
+    let epochs = 100_000;
     for epoch in 1..=epochs {
         // Forward
         let layer1_output = layer1.forward(&x);
