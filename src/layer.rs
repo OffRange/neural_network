@@ -33,6 +33,11 @@ pub trait Layer {
 
     // Cache accessors
     // Used by optimizers to update the weights and biases
+    fn weight_momentum(&self) -> &Array2<f64>;
+    fn weight_momentum_mut(&mut self) -> &mut Array2<f64>;
+    fn bias_momentum(&self) -> &Array1<f64>;
+    fn bias_momentum_mut(&mut self) -> &mut Array1<f64>;
+
     fn weight_cache(&self) -> &Array2<f64>;
     fn weight_cache_mut(&mut self) -> &mut Array2<f64>;
     fn bias_cache(&self) -> &Array1<f64>;
@@ -60,6 +65,9 @@ pub struct Dense {
     weights_gradient: Array2<f64>,
     biases_gradient: Array1<f64>,
 
+    weight_momentum: Array2<f64>,
+    bias_momentum: Array1<f64>,
+
     weight_cache: Array2<f64>,
     bias_cache: Array1<f64>,
 }
@@ -73,6 +81,8 @@ impl Dense {
             input: None,
             weights_gradient: Array2::zeros(weights.raw_dim()),
             biases_gradient: Array1::zeros(biases.raw_dim()),
+            weight_momentum: Array2::zeros(weights.raw_dim()),
+            bias_momentum: Array1::zeros(biases.raw_dim()),
             weight_cache: Array2::zeros(weights.raw_dim()),
             bias_cache: Array1::zeros(biases.raw_dim()),
         }
@@ -95,6 +105,8 @@ impl Layer for Dense {
             input: None,
             weights_gradient: Array2::zeros((n_input, n_neurons)),
             biases_gradient: Array1::zeros(n_neurons),
+            weight_momentum: Array2::zeros((n_input, n_neurons)),
+            bias_momentum: Array1::zeros(n_neurons),
             weight_cache: Array2::zeros((n_input, n_neurons)),
             bias_cache: Array1::zeros(n_neurons),
         }
@@ -110,6 +122,22 @@ impl Layer for Dense {
         self.biases_gradient.assign(&value.sum_axis(ndarray::Axis(0)));
 
         value.dot(&self.weights.t())
+    }
+
+    fn weight_momentum(&self) -> &Array2<f64> {
+        &self.weight_momentum
+    }
+
+    fn weight_momentum_mut(&mut self) -> &mut Array2<f64> {
+        &mut self.weight_momentum
+    }
+
+    fn bias_momentum(&self) -> &Array1<f64> {
+        &self.bias_momentum
+    }
+
+    fn bias_momentum_mut(&mut self) -> &mut Array1<f64> {
+        &mut self.bias_momentum
     }
 
     fn weight_cache(&self) -> &Array2<f64> {
