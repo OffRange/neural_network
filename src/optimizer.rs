@@ -5,6 +5,9 @@ pub trait Optimizer {
     fn update<L>(&mut self, layer: &mut L)
     where
         L: Layer;
+
+    fn learning_rate(&self) -> f64;
+    fn pre_update(&mut self);
 }
 
 pub struct SGD {
@@ -12,6 +15,7 @@ pub struct SGD {
     momentum: f64,
     decay: f64,
     iteration: usize,
+    current_lr: f64,
 }
 
 impl SGD {
@@ -21,6 +25,7 @@ impl SGD {
             momentum,
             decay,
             iteration: 0,
+            current_lr: lr,
         }
     }
 }
@@ -30,16 +35,12 @@ impl Optimizer for SGD {
     where
         L: Layer,
     {
-        let current_lr = self.lr * (1.0 / (1.0 + self.decay * self.iteration as f64));
-
-        self.iteration += 1;
-
-        if self.momentum != 0.0 {
+        if self.momentum != 0.0 { // TODO write tests for this case
             let w_momentum = self.momentum * layer.weight_cache()
-                - current_lr * layer.weights_gradient();
+                - self.current_lr * layer.weights_gradient();
 
             let b_momentum = self.momentum * layer.bias_cache()
-                - current_lr * layer.biases_gradient();
+                - self.current_lr * layer.biases_gradient();
 
             layer.weight_cache_mut().assign(&w_momentum);
             layer.bias_cache_mut().assign(&b_momentum);
@@ -52,12 +53,21 @@ impl Optimizer for SGD {
 
         let g = layer.weights_gradient().clone();
         layer.weights_mut().zip_mut_with(&g, |w, g| {
-            *w -= current_lr * g
+            *w -= self.current_lr * g
         });
         let g = layer.biases_gradient().clone();
         layer.biases_mut().zip_mut_with(&g, |b, g| {
-            *b -= current_lr * g
+            *b -= self.current_lr * g
         });
+    }
+
+    fn learning_rate(&self) -> f64 {
+        self.current_lr
+    }
+
+    fn pre_update(&mut self) {
+        self.current_lr = self.lr * (1.0 / (1.0 + self.decay * self.iteration as f64));
+        self.iteration += 1;
     }
 }
 
@@ -66,6 +76,7 @@ pub struct AdaGrad {
     decay: f64,
     epsilon: f64,
     iteration: usize,
+    current_lr: f64,
 }
 
 impl AdaGrad {
@@ -75,6 +86,7 @@ impl AdaGrad {
             decay,
             epsilon,
             iteration: 0,
+            current_lr: lr,
         }
     }
 }
@@ -84,18 +96,13 @@ impl Optimizer for AdaGrad {
     where
         L: Layer,
     {
-        let current_lr = self.lr * (1.0 / (1.0 + self.decay * self.iteration as f64));
-
-        self.iteration += 1;
-
-
         // Weights
         {
             let g = layer.weights_gradient().clone();
             let cache = layer.weight_cache_mut();
             *cache += &g.powi(2);
 
-            let update = g.mul(current_lr) / (cache.sqrt() + self.epsilon);
+            let update = g.mul(self.current_lr) / (cache.sqrt() + self.epsilon);
             layer.weights_mut().sub_assign(&update);
         }
 
@@ -105,9 +112,18 @@ impl Optimizer for AdaGrad {
             let cache = layer.bias_cache_mut();
             *cache += &g.powi(2);
 
-            let update = current_lr * g / (cache.sqrt() + self.epsilon);
+            let update = self.current_lr * g / (cache.sqrt() + self.epsilon);
             layer.biases_mut().sub_assign(&update);
         }
+    }
+
+    fn learning_rate(&self) -> f64 {
+        self.current_lr
+    }
+
+    fn pre_update(&mut self) {
+        self.current_lr = self.lr * (1.0 / (1.0 + self.decay * self.iteration as f64));
+        self.iteration += 1;
     }
 }
 
@@ -117,6 +133,7 @@ pub struct RMSProp {
     epsilon: f64,
     roh: f64,
     iteration: usize,
+    current_lr: f64,
 }
 
 impl RMSProp {
@@ -127,6 +144,7 @@ impl RMSProp {
             epsilon,
             roh,
             iteration: 0,
+            current_lr: lr,
         }
     }
 }
@@ -136,11 +154,6 @@ impl Optimizer for RMSProp {
     where
         L: Layer,
     {
-        let current_lr = self.lr * (1.0 / (1.0 + self.decay * self.iteration as f64));
-
-        self.iteration += 1;
-
-
         // Weights
         {
             let g = layer.weights_gradient().clone();
@@ -148,7 +161,7 @@ impl Optimizer for RMSProp {
             cache.zip_mut_with(&g, |c, g| *c = self.roh * *c + (1. - self.roh) * g.powi(2));
 
 
-            let update = current_lr * g / (cache.sqrt() + self.epsilon);
+            let update = self.current_lr * g / (cache.sqrt() + self.epsilon);
             layer.weights_mut().sub_assign(&update);
         }
 
@@ -159,9 +172,18 @@ impl Optimizer for RMSProp {
             cache.zip_mut_with(&g, |c, g| *c = self.roh * *c + (1. - self.roh) * g.powi(2));
 
 
-            let update = current_lr * g / (cache.sqrt() + self.epsilon);
+            let update = self.current_lr * g / (cache.sqrt() + self.epsilon);
             layer.biases_mut().sub_assign(&update);
         }
+    }
+
+    fn learning_rate(&self) -> f64 {
+        self.current_lr
+    }
+
+    fn pre_update(&mut self) {
+        self.current_lr = self.lr * (1.0 / (1.0 + self.decay * self.iteration as f64));
+        self.iteration += 1;
     }
 }
 
@@ -172,6 +194,7 @@ pub struct Adam {
     beta1: f64,
     beta2: f64,
     iteration: usize,
+    current_lr: f64,
 }
 
 impl Adam {
@@ -183,6 +206,7 @@ impl Adam {
             beta1,
             beta2,
             iteration: 0,
+            current_lr: lr,
         }
     }
 }
@@ -192,11 +216,6 @@ impl Optimizer for Adam {
     where
         L: Layer,
     {
-        let current_lr = self.lr * (1.0 / (1.0 + self.decay * self.iteration as f64));
-
-        self.iteration += 1;
-
-
         // Weights
         {
             let gradient = layer.weights_gradient().clone();
@@ -215,7 +234,7 @@ impl Optimizer for Adam {
 
             let cache_corrected = cache.map(|c| c / (1. - self.beta2.powi(self.iteration as i32)));
 
-            let update = current_lr * momentum_corrected / (cache_corrected.sqrt() + self.epsilon);
+            let update = self.current_lr * momentum_corrected / (cache_corrected.sqrt() + self.epsilon);
             layer.weights_mut().sub_assign(&update);
         }
 
@@ -236,9 +255,18 @@ impl Optimizer for Adam {
 
             let cache_corrected = cache.map(|c| c / (1. - self.beta2.powi(self.iteration as i32)));
 
-            let update = current_lr * momentum_corrected / (cache_corrected.sqrt() + self.epsilon);
+            let update = self.current_lr * momentum_corrected / (cache_corrected.sqrt() + self.epsilon);
             layer.biases_mut().sub_assign(&update);
         }
+    }
+
+    fn learning_rate(&self) -> f64 {
+        self.current_lr
+    }
+
+    fn pre_update(&mut self) {
+        self.current_lr = self.lr * (1.0 / (1.0 + self.decay * self.iteration as f64));
+        self.iteration += 1;
     }
 }
 
@@ -268,6 +296,7 @@ mod tests {
         let mut layer = prepared_layer();
 
         let mut sgd = SGD::new(0.1, 0.9, 0.01);
+        sgd.pre_update();
         sgd.update(&mut layer);
 
         let expected_weights = array![
@@ -293,6 +322,7 @@ mod tests {
         let mut layer = prepared_layer();
 
         let mut adagrad = AdaGrad::new(1., 0., 1e-7);
+        adagrad.pre_update();
         adagrad.update(&mut layer);
 
         let expected_weights = array![
@@ -318,6 +348,7 @@ mod tests {
         let mut layer = prepared_layer();
 
         let mut rmsprop = RMSProp::new(0.001, 0., 1e-7, 0.9);
+        rmsprop.pre_update();
         rmsprop.update(&mut layer);
 
         let expected_weights = array![
@@ -343,6 +374,7 @@ mod tests {
         let mut layer = prepared_layer();
 
         let mut adam = Adam::new(0.001, 0., 1e-7, 0.9, 0.999);
+        adam.pre_update();
         adam.update(&mut layer);
 
         let expected_weights = array![
