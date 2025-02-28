@@ -1,4 +1,3 @@
-use crate::expect;
 use crate::layer::Layer;
 
 pub trait Optimizer {
@@ -36,10 +35,10 @@ impl Optimizer for SGD {
 
         if self.momentum != 0.0 {
             let w_momentum = self.momentum * layer.weight_momentum()
-                - current_lr * expect!(layer.weights_gradient());
+                - current_lr * layer.weights_gradient();
 
             let b_momentum = self.momentum * layer.bias_momentum()
-                - current_lr * expect!(layer.biases_gradient());
+                - current_lr * layer.biases_gradient();
 
             layer.weight_momentum_mut().assign(&w_momentum);
             layer.bias_momentum_mut().assign(&b_momentum);
@@ -50,11 +49,11 @@ impl Optimizer for SGD {
             return;
         }
 
-        let g = expect!(layer.weights_gradient()).clone();
+        let g = layer.weights_gradient().clone();
         layer.weights_mut().zip_mut_with(&g, |w, g| {
             *w -= current_lr * g
         });
-        let g = expect!(layer.biases_gradient()).clone();
+        let g = layer.biases_gradient().clone();
         layer.biases_mut().zip_mut_with(&g, |b, g| {
             *b -= current_lr * g
         });
@@ -73,8 +72,10 @@ mod tests {
         let mut layer = Dense::new::<initializer::He>(2, 2);
         layer.weights_mut().assign(&array![[0.1, 0.2], [0.3, 0.4]]);
         layer.biases_mut().assign(&array![0.1, 0.2]);
-        layer.forward(&array![[1.0, 2.0]]);
-        layer.backward(&array![[1.0, 2.0]]);
+
+        let x = array![[1.0, 2.0]];
+        layer.forward(&x);
+        layer.backward(&x);
 
         let mut sgd = SGD::new(0.1, 0.9, 0.01);
         sgd.update(&mut layer);

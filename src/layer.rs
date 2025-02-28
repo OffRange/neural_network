@@ -42,8 +42,8 @@ pub trait Layer {
     fn biases(&self) -> &Array1<f64>;
     fn weights_mut(&mut self) -> ArrayViewMut2<f64>;
     fn biases_mut(&mut self) -> ArrayViewMut1<f64>;
-    fn weights_gradient(&self) -> Option<&Array2<f64>>;
-    fn biases_gradient(&self) -> Option<&Array1<f64>>;
+    fn weights_gradient(&self) -> &Array2<f64>;
+    fn biases_gradient(&self) -> &Array1<f64>;
 }
 
 #[derive(Debug)]
@@ -56,8 +56,8 @@ pub struct Dense {
     biases: Array1<f64>,
     input: Option<Array2<f64>>,
 
-    weights_gradient: Option<Array2<f64>>,
-    biases_gradient: Option<Array1<f64>>,
+    weights_gradient: Array2<f64>,
+    biases_gradient: Array1<f64>,
 
     weight_momentum: Array2<f64>,
     bias_momentum: Array1<f64>,
@@ -70,8 +70,8 @@ impl Dense {
             weights: weights.clone(),
             biases: biases.clone(),
             input: None,
-            weights_gradient: None,
-            biases_gradient: None,
+            weights_gradient: Array2::zeros(weights.raw_dim()),
+            biases_gradient: Array1::zeros(biases.raw_dim()),
             weight_momentum: Array2::zeros(weights.raw_dim()),
             bias_momentum: Array1::zeros(biases.raw_dim()),
         }
@@ -92,8 +92,8 @@ impl Layer for Dense {
             weights,
             biases,
             input: None,
-            weights_gradient: None,
-            biases_gradient: None,
+            weights_gradient: Array2::zeros((n_input, n_neurons)),
+            biases_gradient: Array1::zeros(n_neurons),
             weight_momentum: Array2::zeros((n_input, n_neurons)),
             bias_momentum: Array1::zeros(n_neurons),
         }
@@ -105,8 +105,8 @@ impl Layer for Dense {
     }
 
     fn backward(&mut self, value: &Array2<f64>) -> Array2<f64> {
-        self.weights_gradient = Some(expect!(self.input.as_ref()).t().dot(value));
-        self.biases_gradient = Some(value.sum_axis(ndarray::Axis(0)));
+        self.weights_gradient.assign(&expect!(self.input.as_ref()).t().dot(value));
+        self.biases_gradient.assign(&value.sum_axis(ndarray::Axis(0)));
 
         value.dot(&self.weights.t())
     }
@@ -127,6 +127,15 @@ impl Layer for Dense {
         &mut self.bias_momentum
     }
 
+    fn weights(&self) -> &Array2<f64> {
+        &self.weights
+    }
+
+    fn biases(&self) -> &Array1<f64> {
+        &self.biases
+    }
+
+
     fn weights_mut(&mut self) -> ArrayViewMut2<f64> {
         self.weights.view_mut()
     }
@@ -135,21 +144,12 @@ impl Layer for Dense {
         self.biases.view_mut()
     }
 
-
-    fn weights(&self) -> &Array2<f64> {
-        &self.weights
+    fn weights_gradient(&self) -> &Array2<f64> {
+        &self.weights_gradient
     }
 
-    fn weights_gradient(&self) -> Option<&Array2<f64>> {
-        self.weights_gradient.as_ref()
-    }
-
-    fn biases(&self) -> &Array1<f64> {
-        &self.biases
-    }
-
-    fn biases_gradient(&self) -> Option<&Array1<f64>> {
-        self.biases_gradient.as_ref()
+    fn biases_gradient(&self) -> &Array1<f64> {
+        &self.biases_gradient
     }
 }
 
@@ -222,7 +222,7 @@ mod tests {
         let d_values: Array2<f64> = array![[1.0, 2.0],
                                           [3.0, 4.0]];
 
-        layer.input = Some(input.clone());
+        layer.input = Some(input);
         let a = layer.backward(&d_values);
         println!("{:?}", layer.biases_gradient);
     }

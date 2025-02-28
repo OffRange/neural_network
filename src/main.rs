@@ -16,7 +16,6 @@ use crate::optimizer::Optimizer;
 use crate::utils::argmax;
 use ndarray::{array, Array1, Array2};
 use ndarray_npy::write_npy;
-use plotters::prelude::*;
 use rand::seq::SliceRandom;
 
 fn shuffle_rows(x: &mut Array2<f64>, y: &mut Array1<usize>) {
