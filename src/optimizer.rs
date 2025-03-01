@@ -310,11 +310,28 @@ mod tests {
         ];
         let expected_biases_cache = array![-0.1, -0.2];
 
-
         assert_arr_eq_approx!(layer.weights(), expected_weights);
         assert_arr_eq_approx!(layer.biases(), expected_biases);
         assert_arr_eq_approx!(layer.weight_cache(), expected_weights_cache);
         assert_arr_eq_approx!(layer.bias_cache(), expected_biases_cache);
+    }
+
+    #[test]
+    fn test_sdg_no_momentum() {
+        let mut layer = prepared_layer();
+        let mut sdg = SGD::new(0.1, 0., 0.01);
+        sdg.pre_update();
+        sdg.update(&mut layer);
+
+        let expected_weights = array![
+            [0., 0.],
+            [0.1, 0.],
+        ];
+
+        let expected_biases = array![0., 0.];
+
+        assert_arr_eq_approx!(layer.weights(), expected_weights);
+        assert_arr_eq_approx!(layer.biases(), expected_biases);
     }
 
     #[test]
