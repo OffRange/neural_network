@@ -20,6 +20,7 @@ use crate::utils::argmax;
 use ndarray::{array, Array1, Array2};
 use ndarray_npy::write_npy;
 use rand::seq::SliceRandom;
+use std::fs;
 
 fn shuffle_rows(x: &mut Array2<f64>, y: &mut Array1<usize>) {
     assert_eq!(x.nrows(), y.len(), "The number of rows in the input array must match the number of labels.");
@@ -46,7 +47,46 @@ fn shuffle_rows(x: &mut Array2<f64>, y: &mut Array1<usize>) {
     *y = shuffled_y;
 }
 
+#[macro_export]
+macro_rules! write_npy {
+    (forward: $epoch:ident, $layer:ident) => {
+        $crate::write_npy!($layer, "forward", $epoch);
+    };
+
+    (backward: $epoch:ident, $layer:ident) => {
+        $crate::write_npy!($layer, "backward", $epoch);
+    };
+
+    ($layer:ident, $t:literal, $epoch:ident) => {
+        $crate::write_npy!{
+            $layer, $t, $epoch,
+
+            fn weights
+            fn biases
+            fn weights_gradient
+            fn biases_gradient
+            fn weight_momentum
+            fn bias_momentum
+            fn weight_cache
+            fn bias_cache
+        }
+    };
+
+    ($layer:ident, $t:literal, $epoch:ident, $(fn $name:ident)+) => {
+
+        #[cfg(feature = "print-debug")]
+        {
+            println!("Writing {} for epoch {} - {}", stringify!($layer), $epoch, $t);
+        $(
+            write_npy(format!("layers/{}_{}_{}_{}.npy", stringify!($layer), $t, stringify!($name), $epoch), $layer.$name()).unwrap();
+        )+
+        }
+    };
+}
+
 fn main() {
+    fs::remove_dir_all("layers").unwrap();
+    fs::create_dir("layers").unwrap();
     println!("Creating spiral dataset...");
     let (mut x, mut y) = data::create_spiral_dataset(100, 3);
 
@@ -63,14 +103,14 @@ fn main() {
     let mut layer1 = layer::Dense::new::<initializer::He>(2, 64);
     let mut activation1 = activation::ReLU::default();
 
-    let mut layer2 = layer::Dense::new::<initializer::He>(64, 3);
+    let mut layer2 = layer::Dense::new::<initializer::Xavier>(64, 3);
     let mut activation2 = activation::Softmax::default();
 
-    let loss = loss::CategoricalCrossEntropy::default();
+    let loss = loss::CategoricalCrossEntropy::new(1e-7);
 
-    let mut optimizer = optimizer::AdaGrad::new(0.1, 1e-4, 1e-7);
+    let mut optimizer = optimizer::Adam::new(0.02, 1e-5, 1e-7, 0.9, 0.999);
+    //let mut optimizer = optimizer::SGD::new(1., 0., 1e-5);
 
-    #[cfg(debug_assertions)]
     {
         write_npy("weights1.npy", layer1.weights()).unwrap();
         write_npy("biases1.npy", layer1.biases()).unwrap();
@@ -79,7 +119,7 @@ fn main() {
         write_npy("biases2.npy", layer2.biases()).unwrap();
     }
 
-    let epochs = 100_000;
+    let epochs = 200_000;
     for epoch in 1..=epochs {
         // Forward
         let layer1_output = layer1.forward(&x);
@@ -91,8 +131,10 @@ fn main() {
         let loss_value = loss.calculate(&activation2_output, &y);
         let acc_metric = metric::MultiClassAccuracy::default().evaluate(&activation2_output, &y);
 
-        if epoch % 100 == 0 || epoch == 1 {
-            println!("Epoch: {}/{}: Loss: {:?}, Accuracy: {:?}", epoch, epochs, loss_value, acc_metric);
+        if epoch % 100 == 0 || epoch == 1 || cfg!(feature = "print-debug") {
+            println!("Epoch: {}/{}: Loss: {:?}, Accuracy: {:?}, lr: {}", epoch, epochs, loss_value, acc_metric, optimizer.learning_rate());
+            write_npy!(forward: epoch, layer1);
+            write_npy!(forward: epoch, layer2);
         }
 
         // Backward
@@ -104,8 +146,12 @@ fn main() {
         let activation1_back = activation1.backward(&layer2_back);
         let _layer1_back = layer1.backward(&activation1_back);
 
+        optimizer.pre_update();
         optimizer.update(&mut layer1);
         optimizer.update(&mut layer2);
+
+        write_npy!(backward: epoch, layer1);
+        write_npy!(backward: epoch, layer2);
     }
 
     data::visualize_pred(&x, &y, |x, y| {
