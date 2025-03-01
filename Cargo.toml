@@ -1,5 +1,5 @@
 [package]
-name = "nn_n"
+name = "neural_network"
 version = "0.1.0"
 edition = "2024"
 authors = ["Davis Wolfermann"]
@@ -11,3 +11,10 @@ ndarray = "0.16.1"
 ndarray-rand = "0.15.0"
 plotters = "0.3.7"
 ndarray-npy = "0.9.1"
+blas-src = { version = "0.11.1", optional = true }
+
+
+[features]
+blas = ["ndarray/blas", "blas-src"]
+blas-accelerate = ["blas", "blas-src/accelerate"]
+print-debug = []

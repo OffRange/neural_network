@@ -1,3 +1,6 @@
+#[cfg(feature = "blas")]
+extern crate blas_src;
+
 mod layer;
 mod initializer;
 mod data;
