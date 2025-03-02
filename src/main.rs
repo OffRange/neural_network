@@ -85,6 +85,13 @@ macro_rules! write_npy {
 }
 
 fn main() {
+    #[cfg(feature = "print-debug")]
+    println!("Feature enabled: print-debug");
+    #[cfg(feature = "blas")]
+    println!("Feature enabled: blas");
+    #[cfg(feature = "blas-accelerate")]
+    println!("Feature enabled: blas-accelerate");
+
     fs::remove_dir_all("layers").unwrap();
     fs::create_dir("layers").unwrap();
     println!("Creating spiral dataset...");
@@ -119,7 +126,7 @@ fn main() {
         write_npy("biases2.npy", layer2.biases()).unwrap();
     }
 
-    let epochs = 200_000;
+    let epochs = 10_000;
     for epoch in 1..=epochs {
         // Forward
         let layer1_output = layer1.forward(&x);
@@ -153,6 +160,22 @@ fn main() {
         write_npy!(backward: epoch, layer1);
         write_npy!(backward: epoch, layer2);
     }
+
+    // Test dataset
+    let (x, y) = data::create_spiral_dataset(100, 3);
+    let mut forward = |x: &Array2<f64>, y| {
+        let layer1_output = layer1.forward(&x);
+        let activation1_output = activation1.forward(&layer1_output);
+        let layer2_output = layer2.forward(&activation1_output);
+        let activation2_output = activation2.forward(&layer2_output);
+
+        let loss_value = loss.calculate(&activation2_output, y);
+        let acc_metric = metric::MultiClassAccuracy::default().evaluate(&activation2_output, y);
+
+        (activation2_output, loss_value, acc_metric)
+    };
+    let (_, loss_value, acc_metric) = forward(&x, &y);
+    println!("Test Loss: {:?}, Accuracy: {:?}", loss_value, acc_metric);
 
     data::visualize_pred(&x, &y, |x, y| {
         let input = array![[x, y]];
