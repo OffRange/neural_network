@@ -186,41 +186,14 @@ impl Layer for Dense {
 mod tests {
     use super::*;
     use crate::assert_eq_approx;
+    use crate::initializer::test::ConstantInitializer;
     use ndarray::{array, Array2};
-    use ndarray_rand::rand::prelude::*;
-    use ndarray_rand::rand_distr::Distribution;
-
-    struct ConstantDistribution {
-        constant: f64,
-    }
-
-    impl Distribution<f64> for ConstantDistribution {
-        fn sample<R: Rng + ?Sized>(&self, _rng: &mut R) -> f64 {
-            self.constant
-        }
-    }
-
-    struct ConstantInitializer {
-        constant: f64,
-    }
-
-    impl Initializer for ConstantInitializer {
-        fn new(_fan_in: usize, _fan_out: usize) -> Self {
-            Self { constant: 1.0 }
-        }
-
-        fn dist(&self) -> impl Distribution<f64> {
-            ConstantDistribution {
-                constant: self.constant,
-            }
-        }
-    }
 
     #[test]
     fn test_dense_new_shapes_and_values() {
         let n_input = 3;
         let n_neurons = 2;
-        let layer = Dense::new::<ConstantInitializer>(n_input, n_neurons);
+        let layer = Dense::new::<ConstantInitializer<1>>(n_input, n_neurons);
 
         assert_eq!(layer.weights.shape(), &[n_input, n_neurons]);
         assert_eq!(layer.biases.shape(), &[n_neurons]);
@@ -258,7 +231,7 @@ mod tests {
 
     #[test]
     fn test_dense_forward() {
-        let mut layer = Dense::new::<ConstantInitializer>(3, 2);
+        let mut layer = Dense::new::<ConstantInitializer<1>>(3, 2);
 
         let input: Array2<f64> = array![[1.0, 2.0, 3.0],
                                          [4.0, 5.0, 6.0]];
@@ -281,7 +254,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn test_forward_dimension_mismatch() {
-        let mut layer = Dense::new::<ConstantInitializer>(3, 2);
+        let mut layer = Dense::new::<ConstantInitializer<1>>(3, 2);
 
         // Incorrect input shape: Only 2 columns instead of 3.
         let input = array![[1.0, 2.0]];

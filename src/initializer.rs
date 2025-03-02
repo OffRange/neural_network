@@ -1,3 +1,4 @@
+use ndarray_rand::rand::Rng;
 use ndarray_rand::rand_distr::{Distribution, Normal, Uniform};
 
 pub trait Initializer {
@@ -40,6 +41,38 @@ impl Initializer for He {
     }
 }
 
+
+#[cfg(test)]
+pub(crate) mod test {
+    use crate::initializer::Initializer;
+    use ndarray_rand::rand::prelude::*;
+
+    struct ConstantDistribution {
+        constant: f64,
+    }
+
+    impl Distribution<f64> for ConstantDistribution {
+        fn sample<R: Rng + ?Sized>(&self, _rng: &mut R) -> f64 {
+            self.constant
+        }
+    }
+
+    pub(crate) struct ConstantInitializer<const C: usize> {
+        constant: usize,
+    }
+
+    impl<const C: usize> Initializer for ConstantInitializer<C> {
+        fn new(_fan_in: usize, _fan_out: usize) -> Self {
+            Self { constant: C }
+        }
+
+        fn dist(&self) -> impl Distribution<f64> {
+            ConstantDistribution {
+                constant: self.constant as f64,
+            }
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -91,7 +124,7 @@ mod tests {
             "Empirical mean {} is not close to 0",
             mean
         );
-        
+
         // Check that the empirical standard deviation is close to the expected value.
         assert!(
             (empirical_std - expected_std).abs() < 0.1,
