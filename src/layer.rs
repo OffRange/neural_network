@@ -1,6 +1,7 @@
 use crate::expect;
 use crate::initializer::Initializer;
-use ndarray::{Array1, Array2, ArrayViewMut1, ArrayViewMut2};
+use crate::regularizer::Regularizer;
+use ndarray::{Array1, Array2, ArrayViewMut1, ArrayViewMut2, Ix1, Ix2};
 use ndarray_rand::RandomExt;
 use std::fmt::Debug;
 
@@ -50,6 +51,27 @@ pub trait Layer {
     fn biases_mut(&mut self) -> ArrayViewMut1<f64>;
     fn weights_gradient(&self) -> &Array2<f64>;
     fn biases_gradient(&self) -> &Array1<f64>;
+
+    fn kernel_regularizer(&self) -> Option<&Box<dyn Regularizer<Ix2>>>;
+    fn bias_regularizer(&self) -> Option<&Box<dyn Regularizer<Ix1>>>;
+
+
+    /// Returns the regularization losses for the kernel and bias weights.
+    fn regularization_losses(&self) -> (f64, f64) {
+        let kernel_loss = if let Some(reg) = self.kernel_regularizer() {
+            reg.compute(self.weights())
+        } else {
+            0.0
+        };
+
+        let bias_loss = if let Some(reg) = self.bias_regularizer() {
+            reg.compute(self.biases())
+        } else {
+            0.0
+        };
+
+        (kernel_loss, bias_loss)
+    }
 }
 
 #[derive(Debug)]
@@ -70,6 +92,9 @@ pub struct Dense {
 
     weight_cache: Array2<f64>,
     bias_cache: Array1<f64>,
+
+    kernel_regularizer: Option<Box<dyn Regularizer<Ix2>>>,
+    bias_regularizer: Option<Box<dyn Regularizer<Ix1>>>,
 }
 
 #[cfg(debug_assertions)]
@@ -85,12 +110,14 @@ impl Dense {
             bias_momentum: Array1::zeros(biases.raw_dim()),
             weight_cache: Array2::zeros(weights.raw_dim()),
             bias_cache: Array1::zeros(biases.raw_dim()),
+            kernel_regularizer: Default::default(),
+            bias_regularizer: Default::default(),
         }
     }
 }
 
-impl Layer for Dense {
-    fn new<I>(n_input: usize, n_neurons: usize) -> Self
+impl Dense {
+    pub fn new_with_regularizers<I>(n_input: usize, n_neurons: usize, kernel_regularizer: Option<Box<dyn Regularizer<Ix2>>>, bias_regularizer: Option<Box<dyn Regularizer<Ix1>>>) -> Self
     where
         I: Initializer,
     {
@@ -109,7 +136,18 @@ impl Layer for Dense {
             bias_momentum: Array1::zeros(n_neurons),
             weight_cache: Array2::zeros((n_input, n_neurons)),
             bias_cache: Array1::zeros(n_neurons),
+            kernel_regularizer,
+            bias_regularizer,
         }
+    }
+}
+
+impl Layer for Dense {
+    fn new<I>(n_input: usize, n_neurons: usize) -> Self
+    where
+        I: Initializer,
+    {
+        Self::new_with_regularizers::<I>(n_input, n_neurons, None, None)
     }
 
     fn forward(&mut self, input: &Array2<f64>) -> Array2<f64> {
@@ -118,8 +156,22 @@ impl Layer for Dense {
     }
 
     fn backward(&mut self, value: &Array2<f64>) -> Array2<f64> {
-        self.weights_gradient.assign(&expect!(self.input.as_ref()).t().dot(value));
-        self.biases_gradient.assign(&value.sum_axis(ndarray::Axis(0)));
+        let input = expect!(self.input.as_ref());
+        let d_weights = input.t().dot(value);
+        if let Some(reg) = self.kernel_regularizer() {
+            let d_weights = d_weights + &reg.gradient(&self.weights);
+            self.weights_gradient.assign(&d_weights);
+        } else {
+            self.weights_gradient.assign(&d_weights);
+        }
+
+        let d_biases = value.sum_axis(ndarray::Axis(0));
+        if let Some(reg) = self.bias_regularizer() {
+            let d_biases = d_biases + &reg.gradient(&self.biases);
+            self.biases_gradient.assign(&d_biases);
+        } else {
+            self.biases_gradient.assign(&d_biases);
+        }
 
         value.dot(&self.weights.t())
     }
@@ -179,6 +231,14 @@ impl Layer for Dense {
 
     fn biases_gradient(&self) -> &Array1<f64> {
         &self.biases_gradient
+    }
+
+    fn kernel_regularizer(&self) -> Option<&Box<dyn Regularizer<Ix2>>> {
+        self.kernel_regularizer.as_ref()
+    }
+
+    fn bias_regularizer(&self) -> Option<&Box<dyn Regularizer<Ix1>>> {
+        self.bias_regularizer.as_ref()
     }
 }
 

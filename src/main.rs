@@ -10,6 +10,7 @@ mod loss;
 mod metric;
 mod utils;
 mod optimizer;
+mod regularizer;
 
 use crate::activation::ActivationFn;
 use crate::layer::Layer;
@@ -95,7 +96,7 @@ fn main() {
     fs::remove_dir_all("layers").unwrap();
     fs::create_dir("layers").unwrap();
     println!("Creating spiral dataset...");
-    let (mut x, mut y) = data::create_spiral_dataset(100, 3);
+    let (mut x, mut y) = data::create_spiral_dataset(1000, 3);
 
     println!("Shuffling dataset...");
     shuffle_rows(&mut x, &mut y);
@@ -107,10 +108,10 @@ fn main() {
     println!("Saving dataset to spiral.png...");
     data::display_spiral_dataset(&x, &y, "spiral.png").unwrap();
 
-    let mut layer1 = layer::Dense::new::<initializer::He>(2, 64);
+    let mut layer1 = layer::Dense::new_with_regularizers::<initializer::He>(2, 512, Some(Box::new(regularizer::L2::new(5e-4))), None);
     let mut activation1 = activation::ReLU::default();
 
-    let mut layer2 = layer::Dense::new::<initializer::Xavier>(64, 3);
+    let mut layer2 = layer::Dense::new_with_regularizers::<initializer::Xavier>(512, 3, Some(Box::new(regularizer::L2::new(5e-4))), None);
     let mut activation2 = activation::Softmax::default();
 
     let loss = loss::CategoricalCrossEntropy::new(1e-7);
