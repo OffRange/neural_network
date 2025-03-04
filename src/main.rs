@@ -11,6 +11,7 @@ mod metric;
 mod utils;
 mod optimizer;
 mod regularizer;
+mod state;
 
 use crate::activation::ActivationFn;
 use crate::layer::Layer;
