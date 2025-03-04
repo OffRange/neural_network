@@ -1,15 +1,13 @@
 use crate::expect;
 use crate::initializer::Initializer;
 use crate::regularizer::Regularizer;
-use ndarray::{Array1, Array2, ArrayViewMut1, ArrayViewMut2, Ix1, Ix2};
+use crate::state::State;
+use ndarray::{Array1, Array2, ArrayViewMut1, ArrayViewMut2, Ix1, Ix2, ShapeBuilder};
+use ndarray_rand::rand_distr::Bernoulli;
 use ndarray_rand::RandomExt;
 use std::fmt::Debug;
 
 pub trait Layer {
-    fn new<I>(n_input: usize, n_neurons: usize) -> Self
-    where
-        I: Initializer;
-
     /// Performs the forward pass for the layer.
     ///
     /// # Arguments
@@ -32,6 +30,10 @@ pub trait Layer {
     /// * An `Array2<f64>` representing the gradient of the loss with respect to the layer's input.
     fn backward(&mut self, d_value: &Array2<f64>) -> Array2<f64>;
 
+    fn update_state(&mut self, state: State);
+}
+
+pub trait TrainableLayer: Layer {
     // Cache accessors
     // Used by optimizers to update the weights and biases
     fn weight_momentum(&self) -> &Array2<f64>;
@@ -140,16 +142,16 @@ impl Dense {
             bias_regularizer,
         }
     }
-}
 
-impl Layer for Dense {
-    fn new<I>(n_input: usize, n_neurons: usize) -> Self
+    pub fn new<I>(n_input: usize, n_neurons: usize) -> Self
     where
         I: Initializer,
     {
         Self::new_with_regularizers::<I>(n_input, n_neurons, None, None)
     }
+}
 
+impl Layer for Dense {
     fn forward(&mut self, input: &Array2<f64>) -> Array2<f64> {
         self.input = Some(input.clone());
         input.dot(&self.weights) + &self.biases
@@ -176,6 +178,10 @@ impl Layer for Dense {
         value.dot(&self.weights.t())
     }
 
+    fn update_state(&mut self, _state: State) {}
+}
+
+impl TrainableLayer for Dense {
     fn weight_momentum(&self) -> &Array2<f64> {
         &self.weight_momentum
     }
@@ -239,6 +245,62 @@ impl Layer for Dense {
 
     fn bias_regularizer(&self) -> Option<&Box<dyn Regularizer<Ix1>>> {
         self.bias_regularizer.as_ref()
+    }
+}
+
+// TODO write tests for the dropout layer
+pub struct Dropout {
+    keep_prob: f64,
+    mask: Option<Array2<f64>>,
+    state: State,
+}
+
+impl Default for Dropout {
+    fn default() -> Self {
+        Self::new(0.5)
+    }
+}
+
+impl Dropout {
+    pub fn new(dropout_rate: f64) -> Self {
+        assert!(dropout_rate > 0.0 && dropout_rate <= 1.0, "Dropout rate must be in the range (0, 1]");
+        Self {
+            keep_prob: 1. - dropout_rate,
+            mask: None,
+            state: Default::default(),
+        }
+    }
+}
+
+impl Layer for Dropout {
+    fn forward(&mut self, input: &Array2<f64>) -> Array2<f64> {
+        if self.state == State::Evaluating {
+            return input.clone();
+        }
+
+        let mask = Array2::<bool>::random(input.raw_dim(), Bernoulli::new(self.keep_prob).unwrap());
+        self.mask = Some(mask.mapv(f64::from));
+
+        // Scaled to ensure that the overall expected summ remains the same.
+        input * self.mask.as_ref().unwrap() / self.keep_prob
+    }
+
+    fn backward(&mut self, d_value: &Array2<f64>) -> Array2<f64> {
+        if self.state == State::Evaluating {
+            return d_value.clone();
+        }
+        // If the Bernoulli output is a one, the forward function is basically the input to the
+        // dropout layer itself (typically layer's output) divided by the keep_prob value. If that
+        // Bernoulli output is a zero, the forward function is zero.
+        //
+        // Dropout(z) = z * mask / keep_prob
+        // d(Dropout(z))/dz = mask / keep_prob
+        // z represents the layer's output and obvious the input to the dropout function.
+        d_value * expect!(self.mask.as_ref())
+    }
+
+    fn update_state(&mut self, state: State) {
+        self.state = state
     }
 }
 

@@ -14,13 +14,15 @@ mod regularizer;
 mod state;
 
 use crate::activation::ActivationFn;
-use crate::layer::Layer;
+use crate::layer::{Layer, TrainableLayer};
 use crate::loss::Loss;
 use crate::metric::Metric;
 use crate::optimizer::Optimizer;
+use crate::state::State;
 use crate::utils::argmax;
 use ndarray::{array, Array1, Array2};
 use ndarray_npy::write_npy;
+use ndarray_rand::RandomExt;
 use rand::seq::SliceRandom;
 use std::fs;
 
@@ -111,6 +113,7 @@ fn main() {
 
     let mut layer1 = layer::Dense::new_with_regularizers::<initializer::He>(2, 512, Some(Box::new(regularizer::L2::new(5e-4))), None);
     let mut activation1 = activation::ReLU::default();
+    let mut dropout1 = layer::Dropout::new(0.25);
 
     let mut layer2 = layer::Dense::new_with_regularizers::<initializer::Xavier>(512, 3, Some(Box::new(regularizer::L2::new(5e-4))), None);
     let mut activation2 = activation::Softmax::default();
@@ -133,6 +136,7 @@ fn main() {
         // Forward
         let layer1_output = layer1.forward(&x);
         let activation1_output = activation1.forward(&layer1_output);
+        let activation1_output = dropout1.forward(&activation1_output);
 
         let layer2_output = layer2.forward(&activation1_output);
         let activation2_output = activation2.forward(&layer2_output);
@@ -164,6 +168,7 @@ fn main() {
     }
 
     // Test dataset
+    dropout1.update_state(State::Evaluating); // TODO in a real setup, we would like to run this on all layers
     let (x, y) = data::create_spiral_dataset(100, 3);
     let mut forward = |x: &Array2<f64>, y| {
         let layer1_output = layer1.forward(&x);

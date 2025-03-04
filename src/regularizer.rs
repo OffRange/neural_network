@@ -171,7 +171,7 @@ where
 mod tests {
     use super::*;
     use crate::initializer::test::ConstantInitializer;
-    use crate::layer::{Dense, Layer};
+    use crate::layer::{Dense, Layer, TrainableLayer};
     use crate::{assert_arr_eq_approx, assert_eq_approx};
     use ndarray::Array1;
 

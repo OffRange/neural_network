@@ -1,10 +1,10 @@
-use crate::layer::{Dense, Layer};
+use crate::layer::{Dense, Layer, TrainableLayer};
 use std::ops::{AddAssign, Mul, SubAssign};
 
 pub trait Optimizer {
     fn update<L>(&mut self, layer: &mut L)
     where
-        L: Layer;
+        L: TrainableLayer;
 
     fn learning_rate(&self) -> f64;
     fn pre_update(&mut self);
@@ -33,7 +33,7 @@ impl SGD {
 impl Optimizer for SGD {
     fn update<L>(&mut self, layer: &mut L)
     where
-        L: Layer,
+        L: TrainableLayer,
     {
         if self.momentum != 0.0 { // TODO write tests for this case
             let w_momentum = self.momentum * layer.weight_cache()
@@ -94,7 +94,7 @@ impl AdaGrad {
 impl Optimizer for AdaGrad {
     fn update<L>(&mut self, layer: &mut L)
     where
-        L: Layer,
+        L: TrainableLayer,
     {
         // Weights
         {
@@ -152,7 +152,7 @@ impl RMSProp {
 impl Optimizer for RMSProp {
     fn update<L>(&mut self, layer: &mut L)
     where
-        L: Layer,
+        L: TrainableLayer,
     {
         // Weights
         {
@@ -214,7 +214,7 @@ impl Adam {
 impl Optimizer for Adam {
     fn update<L>(&mut self, layer: &mut L)
     where
-        L: Layer,
+        L: TrainableLayer,
     {
         // Weights
         {
