@@ -41,6 +41,7 @@ macro_rules! reg_structure {
     };
 
     ($(#[$meta:meta])* $vis:vis struct $reg_name:ident { $($fields:ident: $ty:ty $(= $init:tt)?)* }) => {
+        $(#[$meta])*
         #[derive(Debug)]
         $vis struct $reg_name {
             $(
