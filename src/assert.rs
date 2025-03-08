@@ -13,7 +13,7 @@ macro_rules! assert_eq_approx {
 macro_rules! assert_arr_eq_approx {
     ($left:expr, $right:expr) => {
         for (&value, &expected) in $left.iter().zip($right.iter()) {
-            assert_eq_approx!(value, expected);
+            $crate::assert_eq_approx!(value, expected);
         }
     };
 }

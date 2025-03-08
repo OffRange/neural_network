@@ -59,7 +59,7 @@ impl Loss<Ix2> for CategoricalCrossEntropy {
         let samples = y_pred.nrows() as f64;
 
         let gradient = -y_true.mapv(|x| x as f64) / y_pred;
-        gradient / samples // Normalize the gradient, this helps the optimizer
+        gradient / samples // Normalize the gradient, this helps the optimizers
     }
 }
 

@@ -1,26 +1,26 @@
-use ndarray::{Array, Array2, Axis, Dimension, RemoveAxis};
+use ndarray::{Array, Axis, Dimension, RemoveAxis};
 use std::fmt::Debug;
 
 pub trait Regularizer<D>: Debug
 where
     D: Dimension,
 {
-    /// Computes the regularization term for parameters of a layer.
+    /// Computes the regularization term for parameters of a layers.
     ///
     /// # Arguments
     ///
-    /// * `parameters` - A reference to an `Array2<f64>` representing a set of parameters of a layer.
+    /// * `parameters` - A reference to an `Array2<f64>` representing a set of parameters of a layers.
     ///
     /// # Returns
     ///
     /// * A scalar `f64` representing the regularization term.
     fn compute(&self, parameters: &Array<f64, D>) -> f64;
 
-    /// Computes the gradient of the regularization term with respect to a set of parameters of a layer.
+    /// Computes the gradient of the regularization term with respect to a set of parameters of a layers.
     ///
     /// # Arguments
     ///
-    /// * `parameters` - A reference to an `Array2<f64>` representing a set of parameters of a layer.
+    /// * `parameters` - A reference to an `Array2<f64>` representing a set of parameters of a layers.
     ///
     /// # Returns
     ///
@@ -171,10 +171,10 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::assert_arr_eq_approx;
     use crate::initializer::test::ConstantInitializer;
-    use crate::layer::{Dense, Layer, TrainableLayer};
-    use crate::{assert_arr_eq_approx, assert_eq_approx};
-    use ndarray::Array1;
+    use crate::layers::{Dense, Layer, TrainableLayer};
+    use ndarray::{Array1, Array2};
 
     #[test]
     fn test_l1_regularization() {

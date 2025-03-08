@@ -1,4 +1,3 @@
-use ndarray_rand::rand::Rng;
 use ndarray_rand::rand_distr::{Distribution, Normal, Uniform};
 
 pub trait Initializer {
