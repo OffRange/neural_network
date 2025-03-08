@@ -14,6 +14,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Install fontconfig dependency for plotters
+        run: sudo apt-get install -y libfontconfig1-dev
       - uses: actions/checkout@v4
       - name: Cache Cargo registry
         uses: actions/cache@v4
