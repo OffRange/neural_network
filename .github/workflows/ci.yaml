@@ -17,6 +17,8 @@ jobs:
       - name: Install fontconfig dependency for plotters
         run: sudo apt-get install -y libfontconfig1-dev
       - uses: actions/checkout@v4
+      - name: Generate Lockfile
+        run: cargo generate-lockfile
       - name: Cache Cargo registry
         uses: actions/cache@v4
         with:
