@@ -55,9 +55,8 @@ pub trait TrainableLayer: Layer {
     fn weights_gradient(&self) -> &Array2<f64>;
     fn biases_gradient(&self) -> &Array1<f64>;
 
-    fn kernel_regularizer(&self) -> Option<&Box<dyn Regularizer<Ix2>>>;
-    fn bias_regularizer(&self) -> Option<&Box<dyn Regularizer<Ix1>>>;
-
+    fn kernel_regularizer(&self) -> Option<&dyn Regularizer<Ix2>>;
+    fn bias_regularizer(&self) -> Option<&dyn Regularizer<Ix1>>;
 
     /// Returns the regularization losses for the kernel and bias weights.
     fn regularization_losses(&self) -> (f64, f64) {

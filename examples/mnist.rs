@@ -1,5 +1,5 @@
 use byteorder::{BigEndian, ReadBytesExt};
-use ndarray::{s, Array1, Array2, Ix1, Ix2};
+use ndarray::{Array1, Array2, Ix1, Ix2, s};
 use neural_network::activations::ActivationFn;
 use neural_network::data::{Dataset, NNDataset};
 use neural_network::layers::Layer;
@@ -7,7 +7,9 @@ use neural_network::loss::Loss;
 use neural_network::metric::Metric;
 use neural_network::optimizers::Optimizer;
 use neural_network::utils::argmax;
-use neural_network::{activations, initializer, layers, loss, metric, optimizers, regularizer, State};
+use neural_network::{
+    State, activations, initializer, layers, loss, metric, optimizers, regularizer,
+};
 use std::fs::File;
 use std::io;
 use std::io::{BufReader, Read};
@@ -15,19 +17,39 @@ use std::io::{BufReader, Read};
 fn main() {
     let mnist = Mnist::new();
 
-    let mut layer1 = layers::Dense::new_with_regularizers::<initializer::He>(784, 1024, Some(Box::new(regularizer::L2::default())), Some(Box::new(regularizer::L2::default())));
+    let mut layer1 = layers::Dense::new_with_regularizers::<initializer::He>(
+        784,
+        1024,
+        Some(Box::new(regularizer::L2::default())),
+        Some(Box::new(regularizer::L2::default())),
+    );
     let mut activation1 = activations::ReLU::default();
     let mut dropout1 = layers::Dropout::new(0.1);
 
-    let mut layer2 = layers::Dense::new_with_regularizers::<initializer::He>(1024, 512, Some(Box::new(regularizer::L2::default())), Some(Box::new(regularizer::L2::default())));
+    let mut layer2 = layers::Dense::new_with_regularizers::<initializer::He>(
+        1024,
+        512,
+        Some(Box::new(regularizer::L2::default())),
+        Some(Box::new(regularizer::L2::default())),
+    );
     let mut activation2 = activations::ReLU::default();
     let mut dropout2 = layers::Dropout::new(0.1);
 
-    let mut layer3 = layers::Dense::new_with_regularizers::<initializer::He>(512, 256, Some(Box::new(regularizer::L2::default())), Some(Box::new(regularizer::L2::default())));
+    let mut layer3 = layers::Dense::new_with_regularizers::<initializer::He>(
+        512,
+        256,
+        Some(Box::new(regularizer::L2::default())),
+        Some(Box::new(regularizer::L2::default())),
+    );
     let mut activation3 = activations::ReLU::default();
     let mut dropout3 = layers::Dropout::new(0.1);
 
-    let mut layer4 = layers::Dense::new_with_regularizers::<initializer::Xavier>(256, 10, Some(Box::new(regularizer::L2::default())), Some(Box::new(regularizer::L2::default())));
+    let mut layer4 = layers::Dense::new_with_regularizers::<initializer::Xavier>(
+        256,
+        10,
+        Some(Box::new(regularizer::L2::default())),
+        Some(Box::new(regularizer::L2::default())),
+    );
     let mut activation4 = activations::Softmax::default();
 
     let loss = loss::CategoricalCrossEntropy::new(1e-7);
@@ -35,25 +57,23 @@ fn main() {
     let mut optimizer = optimizers::Adam::new(0.0005, 1e-5, 1e-7, 0.9, 0.999);
 
     macro_rules! forward {
-            (&$x:ident) => {
-                {
-                    let layer1_out = layer1.forward(&$x);
-                    let activation1_out = activation1.forward(&layer1_out);
-                    let dropout1_out = dropout1.forward(&activation1_out);
+        (&$x:ident) => {{
+            let layer1_out = layer1.forward(&$x);
+            let activation1_out = activation1.forward(&layer1_out);
+            let dropout1_out = dropout1.forward(&activation1_out);
 
-                    let layer2_out = layer2.forward(&dropout1_out);
-                    let activation2_out = activation2.forward(&layer2_out);
-                    let dropout2_out = dropout2.forward(&activation2_out);
+            let layer2_out = layer2.forward(&dropout1_out);
+            let activation2_out = activation2.forward(&layer2_out);
+            let dropout2_out = dropout2.forward(&activation2_out);
 
-                    let layer3_out = layer3.forward(&dropout2_out);
-                    let activation3_out = activation3.forward(&layer3_out);
-                    let dropout3_out = dropout3.forward(&activation3_out);
+            let layer3_out = layer3.forward(&dropout2_out);
+            let activation3_out = activation3.forward(&layer3_out);
+            let dropout3_out = dropout3.forward(&activation3_out);
 
-                    let layer4_out = layer4.forward(&dropout3_out);
-                    activation4.forward(&layer4_out)
-                }
-            };
-        }
+            let layer4_out = layer4.forward(&dropout3_out);
+            activation4.forward(&layer4_out)
+        }};
+    }
 
     let epochs = 300;
     for epoch in 1..=epochs {
@@ -66,9 +86,8 @@ fn main() {
 
             // Loss
             loss_value += loss.calculate(&out, &train_y);
-            acc_metric += metric::MultiClassAccuracy::default().evaluate(&out, &train_y);
+            acc_metric += metric::MultiClassAccuracy.evaluate(&out, &train_y);
             c += 1.;
-
 
             // Backward
             let loss_back = loss.backwards(&out, &train_y);
@@ -95,7 +114,14 @@ fn main() {
         }
 
         if epochs < 100 || epoch % 100 == 0 || epoch == 1 {
-            println!("Epoch: {}/{}: AVG Loss: {:?}, AVG Accuracy: {:?}, lr: {}", epoch, epochs, loss_value / c, acc_metric / c, optimizer.learning_rate());
+            println!(
+                "Epoch: {}/{}: AVG Loss: {:?}, AVG Accuracy: {:?}, lr: {}",
+                epoch,
+                epochs,
+                loss_value / c,
+                acc_metric / c,
+                optimizer.learning_rate()
+            );
         }
     }
 
@@ -108,23 +134,29 @@ fn main() {
     let activation3_out = forward!(&test_x);
 
     let test_loss = loss.calculate(&activation3_out, &test_y);
-    let acc_test_metric = metric::MultiClassAccuracy::default().evaluate(&activation3_out, &test_y);
-    println!("Test Loss: {:?}, Accuracy: {:?}", test_loss, acc_test_metric);
+    let acc_test_metric = metric::MultiClassAccuracy.evaluate(&activation3_out, &test_y);
+    println!(
+        "Test Loss: {:?}, Accuracy: {:?}",
+        test_loss, acc_test_metric
+    );
 
     println!("Real labels: {:?}", test_y.slice(s![0..10]));
-    println!("Prediction : {:?}", argmax(&activation3_out.slice(s![0..10, ..]).to_owned()));
+    println!(
+        "Prediction : {:?}",
+        argmax(&activation3_out.slice(s![0..10, ..]).to_owned())
+    );
 }
 
 type MnistDataset = NNDataset<f64, usize, Ix2, Ix1>;
+
+/// MNIST dataset loader.
 pub struct Mnist {
     pub train_dataset: MnistDataset,
     pub test_dataset: MnistDataset,
 }
 
-
-/// MNIST dataset loader.
-impl Mnist {
-    pub fn new() -> Self {
+impl Default for Mnist {
+    fn default() -> Self {
         let train_img = Mnist::load_img("examples/data/mnist/train-images.idx3-ubyte").unwrap();
         let train_lbl = Mnist::load_label("examples/data/mnist/train-labels.idx1-ubyte").unwrap();
 
@@ -135,6 +167,11 @@ impl Mnist {
             train_dataset: NNDataset::new(train_img, train_lbl),
             test_dataset: NNDataset::new(test_img, test_lbl),
         }
+    }
+}
+impl Mnist {
+    pub fn new() -> Self {
+        Self::default()
     }
 
     fn load_img(path: &str) -> io::Result<Array2<f64>> {
@@ -158,7 +195,7 @@ impl Mnist {
         Ok(
             Array2::from_shape_vec((num_images as usize, (rows * cols) as usize), images)
                 .unwrap()
-                .mapv(|x| x as f64 / 255.0)
+                .mapv(|x| x as f64 / 255.0),
         )
     }
 

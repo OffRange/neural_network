@@ -8,10 +8,11 @@ pub struct Softmax {
 
 impl ActivationFn for Softmax {
     fn forward(&mut self, input: &Array2<f64>) -> Array2<f64> {
-        let max = input.map_axis(ndarray::Axis(1), |row| {
-            row.iter().copied().reduce(f64::max).unwrap()
-        }).insert_axis(ndarray::Axis(1));
-
+        let max = input
+            .map_axis(ndarray::Axis(1), |row| {
+                row.iter().copied().reduce(f64::max).unwrap()
+            })
+            .insert_axis(ndarray::Axis(1));
 
         let exp = (input - max).exp();
         let sum = exp.sum_axis(ndarray::Axis(1)).insert_axis(ndarray::Axis(1));
@@ -19,7 +20,6 @@ impl ActivationFn for Softmax {
         self.output = Some(out.clone());
         out
     }
-
 
     /// Performs the backward pass for the activations function.
     ///
@@ -50,10 +50,15 @@ impl ActivationFn for Softmax {
     ///
     /// * An `Array2<f64>` representing the gradient of the loss with respect to the activations input.
     fn backward(&self, d_values: &Array2<f64>) -> Array2<f64> {
-        let output = self.output.as_ref().expect("output was not set. Please run the forward pass first.");
+        let output = self
+            .output
+            .as_ref()
+            .expect("output was not set. Please run the forward pass first.");
         let mut gradient = Array2::<f64>::uninit(output.raw_dim());
 
-        for (i, (sample_softmax_out, d_value_sample)) in output.outer_iter().zip(d_values.outer_iter()).enumerate() {
+        for (i, (sample_softmax_out, d_value_sample)) in
+            output.outer_iter().zip(d_values.outer_iter()).enumerate()
+        {
             // What this does is compute the Jacobian matrix of the softmax function
             // and applying the chain rule.
             // The Jacobian matrix is computed as:
@@ -68,7 +73,9 @@ impl ActivationFn for Softmax {
             let dot = sample_softmax_out.dot(&d_value_sample);
 
             let dinputs = &sample_softmax_out * &d_value_sample - &sample_softmax_out * dot;
-            gradient.row_mut(i).assign(&dinputs.mapv(|x| std::mem::MaybeUninit::new(x)));
+            gradient
+                .row_mut(i)
+                .assign(&dinputs.mapv(std::mem::MaybeUninit::new));
         }
 
         unsafe { gradient.assume_init() }
@@ -83,10 +90,7 @@ mod tests {
 
     #[test]
     fn test_softmax() {
-        let array = ndarray::array![
-            [1.0, 2.0, 3.0],
-            [4.0, 5.0, 4.0],
-        ];
+        let array = ndarray::array![[1.0, 2.0, 3.0], [4.0, 5.0, 4.0],];
 
         let expected_output = ndarray::array![
             [0.0900305731703804, 0.2447284710547976, 0.6652409557748218],
@@ -102,23 +106,15 @@ mod tests {
 
     #[test]
     fn test_softmax_backward() {
-        let softmax_out = ndarray::array![
-            [5.0, 2.0, 3.0],
-            [4.0, 5.0, 1.0],
-        ];
+        let softmax_out = ndarray::array![[5.0, 2.0, 3.0], [4.0, 5.0, 1.0],];
 
-        let dvalues = ndarray::array![
-            [1.0, 2.0, 3.0],
-            [4.0, 5.0, 6.0],
-        ];
+        let dvalues = ndarray::array![[1.0, 2.0, 3.0], [4.0, 5.0, 6.0],];
 
-        let expected = ndarray::array![
-            [-85.,  -32.,  -45.],
-            [-172., -210.,  -41.]
-        ];
+        let expected = ndarray::array![[-85., -32., -45.], [-172., -210., -41.]];
 
-        let mut softmax = Softmax::default();
-        softmax.output = Some(softmax_out);
+        let softmax = Softmax {
+            output: Some(softmax_out),
+        };
         let d = softmax.backward(&dvalues);
 
         assert_arr_eq_approx!(d, expected);

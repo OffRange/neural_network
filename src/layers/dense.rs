@@ -48,7 +48,12 @@ impl Dense {
 }
 
 impl Dense {
-    pub fn new_with_regularizers<I>(n_input: usize, n_neurons: usize, kernel_regularizer: Option<Box<dyn Regularizer<Ix2>>>, bias_regularizer: Option<Box<dyn Regularizer<Ix1>>>) -> Self
+    pub fn new_with_regularizers<I>(
+        n_input: usize,
+        n_neurons: usize,
+        kernel_regularizer: Option<Box<dyn Regularizer<Ix2>>>,
+        bias_regularizer: Option<Box<dyn Regularizer<Ix1>>>,
+    ) -> Self
     where
         I: Initializer,
     {
@@ -87,7 +92,8 @@ impl Layer for Dense {
     }
 
     fn backward(&mut self, value: &Array2<f64>) -> Array2<f64> {
-        let input = self.input
+        let input = self
+            .input
             .as_ref()
             .expect("input was not set. Please run the forward pass first.");
 
@@ -154,7 +160,6 @@ impl TrainableLayer for Dense {
         &self.biases
     }
 
-
     fn weights_mut(&mut self) -> ArrayViewMut2<f64> {
         self.weights.view_mut()
     }
@@ -171,21 +176,21 @@ impl TrainableLayer for Dense {
         &self.biases_gradient
     }
 
-    fn kernel_regularizer(&self) -> Option<&Box<dyn Regularizer<Ix2>>> {
-        self.kernel_regularizer.as_ref()
+    fn kernel_regularizer(&self) -> Option<&dyn Regularizer<Ix2>> {
+        self.kernel_regularizer.as_deref()
     }
 
-    fn bias_regularizer(&self) -> Option<&Box<dyn Regularizer<Ix1>>> {
-        self.bias_regularizer.as_ref()
+    fn bias_regularizer(&self) -> Option<&dyn Regularizer<Ix1>> {
+        self.bias_regularizer.as_deref()
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::assert_eq_approx;
     use crate::initializer::test::ConstantInitializer;
-    use ndarray::{array, Array2};
+    use crate::{assert_arr_eq_approx, assert_eq_approx};
+    use ndarray::{Array2, array};
 
     #[test]
     fn test_dense_new_shapes_and_values() {
@@ -207,45 +212,50 @@ mod tests {
     }
 
     #[test]
-    fn test_backward() {
+    fn test_dense_backward() {
         let mut layer = Dense::new_with_weights_and_biases(
-            array![[-0.00177312,  0.01083391],
-                            [ 0.00998164, -0.0024269 ],
-                            [-0.00253938, -0.00447975]
+            array![
+                [-0.00177312, 0.01083391],
+                [0.00998164, -0.0024269],
+                [-0.00253938, -0.00447975]
             ],
             array![0.0, 0.0],
         );
 
-        let input: Array2<f64> = array![[1.0, 2.0, 3.0],
-                                         [4.0, 5.0, 6.0]];
+        let input: Array2<f64> = array![[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]];
 
-        let d_values: Array2<f64> = array![[1.0, 2.0],
-                                          [3.0, 4.0]];
+        let d_values: Array2<f64> = array![[1.0, 2.0], [3.0, 4.0]];
 
         layer.input = Some(input);
         let a = layer.backward(&d_values);
-        println!("{:?}", layer.biases_gradient);
+
+        let expected = array![
+            [0.0198947, 0.00512784, -0.01149888],
+            [0.03801628, 0.02023732, -0.02553714]
+        ];
+
+        assert_arr_eq_approx!(a, expected);
     }
 
     #[test]
     fn test_dense_forward() {
         let mut layer = Dense::new::<ConstantInitializer<1>>(3, 2);
 
-        let input: Array2<f64> = array![[1.0, 2.0, 3.0],
-                                         [4.0, 5.0, 6.0]];
+        let input: Array2<f64> = array![[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]];
 
         // For each neuron, the output is:
         // dot(input_row, weights_column) + bias
         // Given weights are all 1's and bias is 1,
         // For the first row: (1+2+3) + 1 = 7, for both neurons.
         // For the second row: (4+5+6) + 1 = 16, for both neurons.
-        let expected: Array2<f64> = array![[7.0, 7.0],
-                                           [16.0, 16.0]];
+        let expected: Array2<f64> = array![[7.0, 7.0], [16.0, 16.0]];
 
         let output = layer.forward(&input);
-        assert_eq!(output, expected, "The forward pass did not produce the expected output.");
+        assert_eq!(
+            output, expected,
+            "The forward pass did not produce the expected output."
+        );
     }
-
 
     /// This test checks that if we pass an input with the wrong dimensions,
     /// the underlying matrix multiplication panics.

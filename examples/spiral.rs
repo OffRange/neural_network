@@ -1,4 +1,4 @@
-use ndarray::{array, Array1, Array2, Ix1, Ix2};
+use ndarray::{Array1, Array2, Ix1, Ix2, array};
 use neural_network::activations::ActivationFn;
 use neural_network::data::{Dataset, NNDataset};
 use neural_network::layers::Layer;
@@ -6,12 +6,14 @@ use neural_network::loss::Loss;
 use neural_network::metric::Metric;
 use neural_network::optimizers::Optimizer;
 use neural_network::utils::argmax;
-use neural_network::{activations, initializer, layers, loss, metric, optimizers, regularizer, State};
+use neural_network::{
+    State, activations, initializer, layers, loss, metric, optimizers, regularizer,
+};
 use plotters::backend::BitMapBackend;
 use plotters::chart::ChartBuilder;
 use plotters::drawing::IntoDrawingArea;
 use plotters::element::{Circle, Rectangle};
-use plotters::prelude::{Color, RGBColor, BLACK, BLUE, CYAN, GREEN, MAGENTA, RED, WHITE, YELLOW};
+use plotters::prelude::{BLACK, BLUE, CYAN, Color, GREEN, MAGENTA, RED, RGBColor, WHITE, YELLOW};
 use rand::distr::Distribution;
 use rand_distr::Normal;
 
@@ -20,13 +22,28 @@ fn main() {
     let dataset = create_spiral_dataset(1000, 3);
 
     println!("Saving dataset to spiral.png...");
-    display_spiral_dataset(&dataset.inputs().to_owned(), &dataset.outputs().to_owned(), "spiral.png").unwrap();
+    display_spiral_dataset(
+        &dataset.inputs().to_owned(),
+        &dataset.outputs().to_owned(),
+        "spiral.png",
+    )
+    .unwrap();
 
-    let mut layer1 = layers::Dense::new_with_regularizers::<initializer::He>(2, 512, Some(Box::new(regularizer::L2::new(5e-4))), None);
+    let mut layer1 = layers::Dense::new_with_regularizers::<initializer::He>(
+        2,
+        512,
+        Some(Box::new(regularizer::L2::new(5e-4))),
+        None,
+    );
     let mut activation1 = activations::ReLU::default();
     let mut dropout1 = layers::Dropout::new(0.25);
 
-    let mut layer2 = layers::Dense::new_with_regularizers::<initializer::Xavier>(512, 3, Some(Box::new(regularizer::L2::new(5e-4))), None);
+    let mut layer2 = layers::Dense::new_with_regularizers::<initializer::Xavier>(
+        512,
+        3,
+        Some(Box::new(regularizer::L2::new(5e-4))),
+        None,
+    );
     let mut activation2 = activations::Softmax::default();
 
     let loss = loss::CategoricalCrossEntropy::new(1e-7);
@@ -48,10 +65,17 @@ fn main() {
         let activation2_output = activation2.forward(&layer2_output);
 
         let loss_value = loss.calculate(&activation2_output, &y);
-        let acc_metric = metric::MultiClassAccuracy::default().evaluate(&activation2_output, &y);
+        let acc_metric = metric::MultiClassAccuracy.evaluate(&activation2_output, &y);
 
         if epoch % 100 == 0 || epoch == 1 {
-            println!("Epoch: {}/{}: Loss: {:?}, Accuracy: {:?}, lr: {}", epoch, epochs, loss_value, acc_metric, optimizer.learning_rate());
+            println!(
+                "Epoch: {}/{}: Loss: {:?}, Accuracy: {:?}, lr: {}",
+                epoch,
+                epochs,
+                loss_value,
+                acc_metric,
+                optimizer.learning_rate()
+            );
         }
 
         // Backward
@@ -74,9 +98,9 @@ fn main() {
     let dataset = create_spiral_dataset(100, 3);
     let x = dataset.inputs().to_owned();
     let y = dataset.outputs().to_owned();
-    
+
     let mut forward = |x: &Array2<f64>, y| {
-        let layer1_output = layer1.forward(&x);
+        let layer1_output = layer1.forward(x);
         let activation1_output = activation1.forward(&layer1_output);
         let dropout1_output = dropout1.forward(&activation1_output);
 
@@ -84,7 +108,7 @@ fn main() {
         let activation2_output = activation2.forward(&layer2_output);
 
         let loss_value = loss.calculate(&activation2_output, y);
-        let acc_metric = metric::MultiClassAccuracy::default().evaluate(&activation2_output, y);
+        let acc_metric = metric::MultiClassAccuracy.evaluate(&activation2_output, y);
 
         (activation2_output, loss_value, acc_metric)
     };
@@ -100,7 +124,8 @@ fn main() {
 
         let pred = argmax(&activation2_output);
         pred[0]
-    }).unwrap();
+    })
+    .unwrap();
 }
 
 fn create_spiral_dataset(num_points: usize, num_classes: usize) -> NNDataset<f64, usize, Ix2, Ix1> {
@@ -122,7 +147,8 @@ fn create_spiral_dataset(num_points: usize, num_classes: usize) -> NNDataset<f64
             let r = i as f64 / num_points as f64;
             // t is the angle: each class gets its own base angle (4.0 * class),
             // plus a linear increase along the arm and some added noise.
-            let t = class as f64 * 4.0 + (i as f64 / num_points as f64) * 4.0 + noise.sample(&mut rng);
+            let t =
+                class as f64 * 4.0 + (i as f64 / num_points as f64) * 4.0 + noise.sample(&mut rng);
             // Multiply the angle to control the number of windings.
             let theta = t * 2.5;
 
@@ -157,7 +183,7 @@ pub fn display_spiral_dataset(
     chart.configure_mesh().draw()?;
 
     // Define a set of colors to be used for different classes.
-    let colors = vec![&RED, &BLUE, &GREEN, &CYAN, &MAGENTA, &YELLOW];
+    let colors = &[&RED, &BLUE, &GREEN, &CYAN, &MAGENTA, &YELLOW];
 
     // Plot each data point as a small filled circle.
     for (idx, point) in x.outer_iter().enumerate() {
@@ -176,7 +202,11 @@ pub fn display_spiral_dataset(
     Ok(())
 }
 
-pub(crate) fn visualize_pred<F>(data: &Array2<f64>, labels: &Array1<usize>, mut model_predict: F) -> Result<(), Box<dyn std::error::Error>>
+pub(crate) fn visualize_pred<F>(
+    data: &Array2<f64>,
+    labels: &Array1<usize>,
+    mut model_predict: F,
+) -> Result<(), Box<dyn std::error::Error>>
 where
     F: FnMut(f64, f64) -> usize,
 {

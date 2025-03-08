@@ -156,10 +156,12 @@ where
     D: Dimension + RemoveAxis,
 {
     fn compute(&self, parameters: &Array<f64, D>) -> f64 {
-        self.lambda * parameters.powi(2)
-            .mean_axis(Axis(0)) // Axis 0 is the batch axis (in a 2D array --> rows)
-            .unwrap()
-            .sum()
+        self.lambda
+            * parameters
+                .powi(2)
+                .mean_axis(Axis(0)) // Axis 0 is the batch axis (in a 2D array --> rows)
+                .unwrap()
+                .sum()
     }
 
     fn gradient(&self, parameters: &Array<f64, D>) -> Array<f64, D> {
@@ -190,7 +192,11 @@ mod tests {
     fn test_l2_regularization() {
         let l2 = L2::new(0.1);
         let parameters = Array2::from_shape_vec((3, 2), vec![1., 2., 3., 4., 5., 4.5]).unwrap();
-        let expected_grad = Array2::from_shape_vec((3, 2), vec![1. / 15., 2. / 15., 1. / 5., 4. / 15., 5. / 15., 3. / 10.]).unwrap();
+        let expected_grad = Array2::from_shape_vec(
+            (3, 2),
+            vec![1. / 15., 2. / 15., 1. / 5., 4. / 15., 5. / 15., 3. / 10.],
+        )
+        .unwrap();
 
         assert_eq!(l2.compute(&parameters), 301. / 120.);
         assert_arr_eq_approx!(l2.gradient(&parameters), expected_grad);
@@ -198,9 +204,12 @@ mod tests {
 
     #[test]
     fn test_with_layer() {
-        let l1 = L1::default();
-
-        let mut layer = Dense::new_with_regularizers::<ConstantInitializer<1>>(5, 5, Some(Box::new(L1::new(0.01))), None);
+        let mut layer = Dense::new_with_regularizers::<ConstantInitializer<1>>(
+            5,
+            5,
+            Some(Box::new(L1::new(0.01))),
+            None,
+        );
         let input = Array2::from_elem((5, 5), 2.);
 
         layer.biases_mut().assign(&Array1::zeros(5));
