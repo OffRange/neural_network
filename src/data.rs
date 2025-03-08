@@ -1,7 +1,203 @@
-use ndarray::{Array1, Array2};
+use byteorder::{BigEndian, ReadBytesExt};
+use ndarray::{Array, Array1, Array2, ArrayView, Axis, Dimension, Ix1, Ix2, RemoveAxis};
 use plotters::prelude::*;
-use rand::prelude::Distribution;
+use rand::prelude::{Distribution, SliceRandom};
 use rand_distr::Normal;
+use std::error::Error;
+use std::fs::File;
+use std::io;
+use std::io::{BufReader, Read};
+
+pub trait Dataset {
+    type InType: Clone;
+    type OutType: Clone;
+
+    type InDim: Dimension + RemoveAxis;
+    type OutDim: Dimension + RemoveAxis;
+
+    fn len(&self) -> usize;
+
+    fn inputs(&self) -> ArrayView<Self::InType, Self::InDim>;
+    fn outputs(&self) -> ArrayView<Self::OutType, Self::OutDim>;
+
+    fn batch_iter(&self, batch_size: usize, shuffle: bool) -> BatchIterator<Self> {
+        let n_samples = self.len();
+        let mut indices: Vec<usize> = (0..n_samples).collect();
+        if shuffle {
+            indices.shuffle(&mut rand::rng());
+        }
+
+        BatchIterator {
+            dataset: self,
+            indices,
+            batch_size,
+            current_idx: 0,
+        }
+    }
+}
+
+pub struct NNDataset<I, O, ID, OD> {
+    inputs: Array<I, ID>,
+    outputs: Array<O, OD>,
+}
+
+impl<I, O, ID, OD> NNDataset<I, O, ID, OD>
+where
+    ID: Dimension,
+    OD: Dimension,
+{
+    /// Create a new dataset with the given inputs and outputs.
+    ///
+    /// # Arguments
+    ///
+    /// * `inputs` - An `Array` containing the input data.
+    /// * `outputs` - An `Array` containing the output data.
+    ///
+    /// # Returns
+    ///
+    /// * An `NNDataset` instance.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the number of samples in `inputs` and `outputs` do not match.
+    pub fn new(inputs: Array<I, ID>, outputs: Array<O, OD>) -> Self {
+        assert_eq!(inputs.len_of(Axis(0)), outputs.len_of(Axis(0)), "Number of samples must match between inputs and outputs");
+        Self { inputs, outputs }
+    }
+
+    pub fn new_from_vec(input_shape: ID, output_shape: OD, inputs: Vec<I>, outputs: Vec<O>) -> Self {
+        let inputs = Array::from_shape_vec(input_shape, inputs).unwrap();
+        let outputs = Array::from_shape_vec(output_shape, outputs).unwrap();
+        Self::new(inputs, outputs)
+    }
+}
+
+impl<I, O, ID, OD> Dataset for NNDataset<I, O, ID, OD>
+where
+    I: Clone,
+    O: Clone,
+    ID: Dimension + RemoveAxis,
+    OD: Dimension + RemoveAxis,
+{
+    type InType = I;
+    type OutType = O;
+    type InDim = ID;
+    type OutDim = OD;
+
+    fn len(&self) -> usize {
+        self.inputs.len_of(Axis(0))
+    }
+
+    fn inputs(&self) -> ArrayView<Self::InType, Self::InDim> {
+        self.inputs.view()
+    }
+
+    fn outputs(&self) -> ArrayView<Self::OutType, Self::OutDim> {
+        self.outputs.view()
+    }
+}
+
+pub struct BatchIterator<'a, D>
+where
+    D: Dataset + ?Sized,
+{
+    dataset: &'a D,
+    indices: Vec<usize>,
+    batch_size: usize,
+    current_idx: usize,
+}
+
+impl<'a, D> Iterator for BatchIterator<'a, D>
+where
+    D: Dataset + ?Sized,
+{
+    type Item = (
+        Array<D::InType, D::InDim>,
+        Array<D::OutType, D::OutDim>,
+    );
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.current_idx >= self.indices.len() {
+            return None;
+        }
+
+        let end_idx = (self.current_idx + self.batch_size).min(self.indices.len());
+        let batch_indices = &self.indices[self.current_idx..end_idx];
+        self.current_idx = end_idx;
+
+        let inputs = self.dataset.inputs()
+            .select(Axis(0), batch_indices);
+
+        let outputs = self.dataset.outputs()
+            .select(Axis(0), batch_indices);
+
+        Some((inputs, outputs))
+    }
+}
+
+type MnistDataset = NNDataset<f64, usize, Ix2, Ix1>;
+pub struct Mnist {
+    pub train_dataset: MnistDataset,
+    pub test_dataset: MnistDataset,
+}
+
+impl Mnist {
+    pub fn new() -> Self {
+        let train_img = Mnist::load_img("data/mnist/train-images.idx3-ubyte").unwrap();
+        let train_lbl = Mnist::load_label("data/mnist/train-labels.idx1-ubyte").unwrap();
+
+        let test_img = Mnist::load_img("data/mnist/t10k-images.idx3-ubyte").unwrap();
+        let test_lbl = Mnist::load_label("data/mnist/t10k-labels.idx1-ubyte").unwrap();
+
+        Self {
+            train_dataset: NNDataset::new(train_img, train_lbl),
+            test_dataset: NNDataset::new(test_img, test_lbl),
+        }
+    }
+
+    fn load_img(path: &str) -> io::Result<Array2<f64>> {
+        let file = File::open(path)?;
+        let mut reader = BufReader::new(file);
+
+        // Read header values
+        let magic = reader.read_u32::<BigEndian>()?;
+        if magic != 2051 {
+            panic!("Invalid magic number for image file: {}", magic);
+        }
+
+        let num_images = reader.read_u32::<BigEndian>()?;
+        let rows = reader.read_u32::<BigEndian>()?;
+        let cols = reader.read_u32::<BigEndian>()?;
+
+        // Read all image data (each image is rows * cols bytes)
+        let mut images = vec![0u8; (num_images * rows * cols) as usize];
+        reader.read_exact(&mut images)?;
+
+        Ok(
+            Array2::from_shape_vec((num_images as usize, (rows * cols) as usize), images)
+                .unwrap()
+                .mapv(|x| x as f64 / 255.0)
+        )
+    }
+
+    fn load_label(path: &str) -> io::Result<Array1<usize>> {
+        let file = File::open(path)?;
+        let mut reader = BufReader::new(file);
+
+        // Read header values
+        let magic = reader.read_u32::<BigEndian>()?;
+        if magic != 2049 {
+            panic!("Invalid magic number for label file: {}", magic);
+        }
+        let num_labels = reader.read_u32::<BigEndian>()?;
+
+        // Read all label data (each label is one byte)
+        let mut labels = vec![0u8; num_labels as usize];
+        reader.read_exact(&mut labels)?;
+
+        Ok(labels.iter().map(|&x| x as usize).collect())
+    }
+}
 
 pub fn create_spiral_dataset(num_points: usize, num_classes: usize) -> (Array2<f64>, Array1<usize>) {
     let total_points = num_points * num_classes;
@@ -144,4 +340,90 @@ where
     root.present()?;
     println!("Result has been saved to decision_boundaries.png");
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Dataset, Mnist, NNDataset};
+    use ndarray::{array, Axis};
+
+    #[test]
+    #[should_panic]
+    fn test_nn_dataset_panics() {
+        let inputs = array![[1.0, 2.0], [3.0, 4.0]];
+        let outputs = array![1, 2, 3];
+
+        NNDataset::new(inputs, outputs);
+    }
+
+    #[test]
+    fn test_dataset_len() {
+        let inputs = array![[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]];
+        let outputs = array![[0.0], [1.0], [0.0]];
+        let dataset = NNDataset::new(inputs, outputs);
+        assert_eq!(dataset.len(), 3);
+    }
+
+    #[test]
+    fn test_batch_iterator_no_shuffle() {
+        let inputs = array![[1.0, 2.0],
+                            [3.0, 4.0],
+                            [5.0, 6.0],
+                            [7.0, 8.0]];
+        let outputs = array![[1.0],
+                             [0.0],
+                             [1.0],
+                             [0.0]];
+        let dataset = NNDataset::new(inputs.clone(), outputs.clone());
+
+        // Use a batch size of 2 and disable shuffling for predictable order.
+        let batch_iter = dataset.batch_iter(2, false);
+
+        let input_chunks = inputs.axis_chunks_iter(Axis(0), 2);
+        let output_chunks = outputs.axis_chunks_iter(Axis(0), 2);
+        let zipped_chunks = input_chunks.zip(output_chunks);
+
+        for ((i, (batch_inputs, batch_outputs)), (expected_in, expected_out)) in batch_iter.enumerate().zip(zipped_chunks) {
+            assert_eq!(batch_inputs.shape(), &[2, 2]);
+            assert_eq!(batch_outputs.shape(), &[2, 1]);
+
+            // Check first sample in the batch.
+            assert_eq!(batch_inputs, expected_in);
+            assert_eq!(batch_outputs, expected_out);
+        }
+    }
+
+    #[test]
+    fn test_batch_iterator_shuffle() {
+        let inputs = array![[1.0, 2.0],
+                            [3.0, 4.0],
+                            [5.0, 6.0],
+                            [7.0, 8.0]];
+        let outputs = array![[1.0],
+                             [0.0],
+                             [1.0],
+                             [0.0]];
+        let dataset = NNDataset::new(inputs, outputs);
+
+        // Use a batch size of 3 and enable shuffling.
+        let mut batch_iter = dataset.batch_iter(3, true);
+        let mut total_samples = 0;
+
+        while let Some((batch_inputs, _)) = batch_iter.next() {
+            total_samples += batch_inputs.shape()[0];
+            // The batch should have at most 3 samples.
+            assert!(batch_inputs.shape()[0] <= 3);
+        }
+
+        // Verify that we have iterated over all samples.
+        assert_eq!(total_samples, dataset.len());
+    }
+
+    #[test]
+    fn test_mnist_loader() {
+        let mnist = Mnist::new();
+
+        assert_eq!(mnist.train_dataset.len(), 60_000);
+        assert_eq!(mnist.test_dataset.len(), 10_000);
+    }
 }

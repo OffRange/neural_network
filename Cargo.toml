@@ -12,6 +12,7 @@ ndarray-rand = "0.15.0"
 plotters = "0.3.7"
 ndarray-npy = "0.9.1"
 blas-src = { version = "0.11.1", optional = true }
+byteorder = "1.5.0"
 
 
 [features]
