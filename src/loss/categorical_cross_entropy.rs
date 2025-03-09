@@ -9,7 +9,7 @@ pub struct CategoricalCrossEntropy {
 impl Default for CategoricalCrossEntropy {
     #[inline(always)]
     fn default() -> Self {
-        Self::new(f64::EPSILON)
+        Self::new(1e-7)
     }
 }
 
