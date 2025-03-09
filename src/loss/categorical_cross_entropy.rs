@@ -1,17 +1,6 @@
+use crate::loss::Loss;
 use crate::utils::ToOneHot;
 use ndarray::{Array, Array1, Array2, Ix, Ix1, Ix2};
-
-pub trait Loss<D>
-where
-    D: ndarray::Dimension,
-{
-    fn forward(&self, y_pred: &Array2<f64>, y_true: &Array<Ix, D>) -> Array1<f64>;
-    fn backwards(&self, y_pred: &Array2<f64>, y_true: &Array<Ix, D>) -> Array2<f64>;
-
-    fn calculate(&self, y_pred: &Array2<f64>, y_true: &Array<Ix, D>) -> f64 {
-        self.forward(y_pred, y_true).mean().unwrap()
-    }
-}
 
 pub struct CategoricalCrossEntropy {
     clamp_epsilon: f64,
@@ -71,17 +60,9 @@ mod tests {
 
     #[test]
     fn test_categorical_cross_entropy() {
-        let y_pred = array![
-            [0.7, 0.1, 0.2],
-            [0.1, 0.5, 0.4],
-            [0.02, 0.9, 0.08],
-        ];
+        let y_pred = array![[0.7, 0.1, 0.2], [0.1, 0.5, 0.4], [0.02, 0.9, 0.08],];
 
-        let y_true_one_hot = array![
-            [1, 0, 0],
-            [0, 1, 0],
-            [0, 1, 0],
-        ];
+        let y_true_one_hot = array![[1, 0, 0], [0, 1, 0], [0, 1, 0],];
 
         let y_true = array![0, 1, 1];
 
@@ -94,28 +75,21 @@ mod tests {
 
     #[test]
     fn test_categorical_cross_entropy_backward() {
-        let y_pred = array![
-            [0.7, 0.1, 0.2],
-            [0.1, 0.5, 0.4],
-            [0.02, 0.9, 0.08],
-        ];
+        let y_pred = array![[0.7, 0.1, 0.2], [0.1, 0.5, 0.4], [0.02, 0.9, 0.08],];
 
-        let y_true_one_hot = array![
-            [1, 0, 0],
-            [0, 1, 0],
-            [0, 1, 0],
-        ];
+        let y_true_one_hot = array![[1, 0, 0], [0, 1, 0], [0, 1, 0],];
 
         let y_true_sparse = array![0, 1, 1];
 
-        let loss_backward_one_hot = CategoricalCrossEntropy::default().backwards(&y_pred, &y_true_one_hot);
-        let loss_backward_sparse = CategoricalCrossEntropy::default().backwards(&y_pred, &y_true_sparse);
-
+        let loss_backward_one_hot =
+            CategoricalCrossEntropy::default().backwards(&y_pred, &y_true_one_hot);
+        let loss_backward_sparse =
+            CategoricalCrossEntropy::default().backwards(&y_pred, &y_true_sparse);
 
         let expected = array![
-            [-1./2.1, 0.0, 0.0],
-            [0.0, -2./3., 0.0],
-            [0.0, -1./2.7, 0.0],
+            [-1. / 2.1, 0.0, 0.0],
+            [0.0, -2. / 3., 0.0],
+            [0.0, -1. / 2.7, 0.0],
         ];
 
         assert_arr_eq_approx!(loss_backward_one_hot, expected);
