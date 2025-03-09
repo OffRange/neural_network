@@ -1,13 +1,14 @@
-mod relu;
 mod leaky_relu;
+mod relu;
+mod sigmoid;
 mod softmax;
 
 pub use leaky_relu::*;
 pub use relu::*;
+pub use sigmoid::*;
 pub use softmax::*;
 
 use ndarray::Array2;
-
 
 // TODO generalize to support multiple dimensions
 pub trait ActivationFn: Default {
