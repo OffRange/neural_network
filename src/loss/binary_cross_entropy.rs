@@ -1,5 +1,5 @@
 use crate::loss::Loss;
-use ndarray::{Array, Array1, Array2, Axis, Ix, Ix2};
+use ndarray::{Array, Array2, Ix, Ix2};
 
 pub struct BinaryCrossEntropy {
     clamp_epsilon: f64,
@@ -20,13 +20,13 @@ impl BinaryCrossEntropy {
 }
 
 impl Loss<Ix2> for BinaryCrossEntropy {
-    fn forward(&self, y_pred: &Array2<f64>, y_true: &Array<Ix, Ix2>) -> Array1<f64> {
+    fn calculate(&self, y_pred: &Array2<f64>, y_true: &Array<Ix, Ix2>) -> f64 {
         let clamped_y_pred = y_pred.clamp(self.clamp_epsilon, 1.0 - self.clamp_epsilon);
         let y_true = &y_true.mapv(|x| x as f64);
         let sample_losses =
             -y_true * clamped_y_pred.ln() - (1.0 - y_true) * (1.0 - clamped_y_pred).ln();
 
-        sample_losses.mean_axis(Axis(1)).unwrap()
+        sample_losses.mean().unwrap()
     }
 
     fn backwards(&self, y_pred: &Array2<f64>, y_true: &Array<Ix, Ix2>) -> Array2<f64> {

@@ -1,6 +1,6 @@
 use crate::loss::Loss;
 use crate::utils::ToOneHot;
-use ndarray::{Array, Array1, Array2, Ix, Ix1, Ix2};
+use ndarray::{Array, Array2, Ix, Ix1, Ix2};
 
 pub struct CategoricalCrossEntropy {
     clamp_epsilon: f64,
@@ -21,12 +21,14 @@ impl CategoricalCrossEntropy {
 }
 
 impl Loss<Ix1> for CategoricalCrossEntropy {
-    fn forward(&self, y_pred: &Array2<f64>, y_true: &Array<Ix, Ix1>) -> Array1<f64> {
+    fn calculate(&self, y_pred: &Array2<f64>, y_true: &Array<Ix, Ix1>) -> f64 {
         let clamped_y_pred = y_pred.clamp(self.clamp_epsilon, 1.0 - self.clamp_epsilon);
 
         Array::from_shape_fn(clamped_y_pred.nrows(), |x| {
             -clamped_y_pred[[x, y_true[x]]].ln()
         })
+        .mean()
+        .unwrap()
     }
 
     fn backwards(&self, y_pred: &Array2<f64>, y_true: &Array<Ix, Ix1>) -> Array2<f64> {
@@ -36,12 +38,14 @@ impl Loss<Ix1> for CategoricalCrossEntropy {
 }
 
 impl Loss<Ix2> for CategoricalCrossEntropy {
-    fn forward(&self, y_pred: &Array2<f64>, y_true: &Array<Ix, Ix2>) -> Array1<f64> {
+    fn calculate(&self, y_pred: &Array2<f64>, y_true: &Array<Ix, Ix2>) -> f64 {
         let clamped_y_pred = y_pred.clamp(self.clamp_epsilon, 1.0 - self.clamp_epsilon);
 
         -(y_true.mapv(|x| x as f64) * clamped_y_pred)
             .sum_axis(ndarray::Axis(1))
             .mapv(f64::ln)
+            .mean()
+            .unwrap() // Per-Sample Loss
     }
 
     fn backwards(&self, y_pred: &Array2<f64>, y_true: &Array<Ix, Ix2>) -> Array2<f64> {
