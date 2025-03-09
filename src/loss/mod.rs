@@ -1,5 +1,7 @@
+mod binary_cross_entropy;
 mod categorical_cross_entropy;
 
+pub use binary_cross_entropy::*;
 pub use categorical_cross_entropy::*;
 
 use ndarray::{Array, Array1, Array2, Ix};
