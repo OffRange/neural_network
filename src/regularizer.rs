@@ -130,7 +130,6 @@ reg_structure! {
     }
 }
 
-//TODO enable usage in combination with L1 regularization and wise versa
 impl L2 {
     /// Creates a new L2 regularization term with the given lambda.
     ///
