@@ -4,7 +4,6 @@ version = "0.1.0"
 edition = "2024"
 authors = ["Davis Wolfermann"]
 license = "MIT"
-license-file = "LICENSE"
 description = "A custom neural network library built entirely from scratch in pure Rust."
 keywords = ["neural-network", "machine-learning", "deep-learning", "rust"]
 
