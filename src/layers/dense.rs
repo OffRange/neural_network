@@ -105,7 +105,7 @@ impl Layer for Dense {
             self.weights_gradient.assign(&d_weights);
         }
 
-        let d_biases = value.sum_axis(ndarray::Axis(0));
+        let d_biases = value.sum_axis(Axis(0));
         if let Some(reg) = self.bias_regularizer() {
             let d_biases = d_biases + &reg.gradient(&self.biases);
             self.biases_gradient.assign(&d_biases);
