@@ -20,7 +20,7 @@ impl CategoricalCrossEntropy {
     }
 }
 
-impl Loss<Ix1> for CategoricalCrossEntropy {
+impl Loss<Ix1, Ix> for CategoricalCrossEntropy {
     fn calculate(&self, y_pred: &Array2<f64>, y_true: &Array<Ix, Ix1>) -> f64 {
         let clamped_y_pred = y_pred.clamp(self.clamp_epsilon, 1.0 - self.clamp_epsilon);
 
@@ -33,11 +33,11 @@ impl Loss<Ix1> for CategoricalCrossEntropy {
 
     fn backwards(&self, y_pred: &Array2<f64>, y_true: &Array<Ix, Ix1>) -> Array2<f64> {
         let one_hot = y_true.to_one_hot(y_pred.ncols());
-        <Self as Loss<Ix2>>::backwards(self, y_pred, &one_hot)
+        <Self as Loss<Ix2, Ix>>::backwards(self, y_pred, &one_hot)
     }
 }
 
-impl Loss<Ix2> for CategoricalCrossEntropy {
+impl Loss<Ix2, Ix> for CategoricalCrossEntropy {
     fn calculate(&self, y_pred: &Array2<f64>, y_true: &Array<Ix, Ix2>) -> f64 {
         let clamped_y_pred = y_pred.clamp(self.clamp_epsilon, 1.0 - self.clamp_epsilon);
 
