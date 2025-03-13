@@ -48,6 +48,7 @@ impl Dense {
 }
 
 impl Dense {
+    // TODO allow multiple regularizers
     pub fn new_with_regularizers<I>(
         n_input: usize,
         n_neurons: usize,
