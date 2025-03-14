@@ -1,20 +1,20 @@
 use crate::metric::Metric;
-use crate::utils::argmax;
-use ndarray::{Array, Array2, Ix, Ix1, Ix2};
+use crate::utils::Argmax;
+use ndarray::{Array, Array2, Axis, Ix, Ix1, Ix2};
 
 #[derive(Default)]
 pub struct MultiClassAccuracy;
 
 impl Metric<f64, Ix2> for MultiClassAccuracy {
     fn evaluate(&self, y_pred: &Array2<f64>, y_true: &Array<f64, Ix2>) -> f64 {
-        let y_true = argmax(y_true);
+        let y_true = y_true.argmax(Axis(1));
         Self::evaluate(self, y_pred, &y_true)
     }
 }
 
 impl Metric<Ix, Ix1> for MultiClassAccuracy {
     fn evaluate(&self, y_pred: &Array2<f64>, y_true: &Array<Ix, Ix1>) -> f64 {
-        let y_pred = argmax(y_pred);
+        let y_pred = y_pred.argmax(Axis(1));
         y_pred
             .iter()
             .zip(y_true.iter())
@@ -36,7 +36,7 @@ mod tests {
 
         let y_true = array![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 1.0, 0.0]];
 
-        let y_true_scalar = argmax(&y_true); // Equivalent to [0, 1, 1]
+        let y_true_scalar = y_true.argmax(Axis(1)); // Equivalent to [0, 1, 1]
 
         let result_one_hot_enc = MultiClassAccuracy.evaluate(&y_pred, &y_true);
         let result = MultiClassAccuracy.evaluate(&y_pred, &y_true_scalar);

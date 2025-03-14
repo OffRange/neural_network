@@ -1,11 +1,11 @@
-use ndarray::{Array1, Array2, Ix1, Ix2, array};
+use ndarray::{Array1, Array2, Axis, Ix1, Ix2, array};
 use neural_network::activations::ActivationFn;
 use neural_network::data::{Dataset, NNDataset};
 use neural_network::layers::Layer;
 use neural_network::loss::Loss;
 use neural_network::metric::Metric;
 use neural_network::optimizers::Optimizer;
-use neural_network::utils::argmax;
+use neural_network::utils::Argmax;
 use neural_network::{
     State, activations, initializer, layers, loss, metric, optimizers, regularizer,
 };
@@ -122,7 +122,7 @@ fn main() {
         let layer2_output = layer2.forward(&activation1_output);
         let activation2_output = activation2.forward(&layer2_output);
 
-        let pred = argmax(&activation2_output);
+        let pred = activation2_output.argmax(Axis(1));
         pred[0]
     })
     .unwrap();

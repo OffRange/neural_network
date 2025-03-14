@@ -1,12 +1,12 @@
 use byteorder::{BigEndian, ReadBytesExt};
-use ndarray::{Array1, Array2, Ix1, Ix2, s};
+use ndarray::{Array1, Array2, Axis, Ix1, Ix2, s};
 use neural_network::activations::ActivationFn;
 use neural_network::data::{Dataset, NNDataset};
 use neural_network::layers::Layer;
 use neural_network::loss::Loss;
 use neural_network::metric::Metric;
 use neural_network::optimizers::Optimizer;
-use neural_network::utils::argmax;
+use neural_network::utils::Argmax;
 use neural_network::{
     State, activations, initializer, layers, loss, metric, optimizers, regularizer,
 };
@@ -143,7 +143,7 @@ fn main() {
     println!("Real labels: {:?}", test_y.slice(s![0..10]));
     println!(
         "Prediction : {:?}",
-        argmax(&activation3_out.slice(s![0..10, ..]).to_owned())
+        activation3_out.slice(s![0..10, ..]).argmax(Axis(1))
     );
 }
 
