@@ -1,12 +1,12 @@
 use ndarray::{Array1, Array2, Axis, Ix1, stack};
-use neural_network::activations::ActivationFn;
+use neural_network::Module;
 use neural_network::data::{Dataset, NNDataset};
-use neural_network::layers::Layer;
-use neural_network::layers::{Dense, TrainableLayer};
 use neural_network::loss::Loss;
 use neural_network::metric::{Metric, RegressionAccuracy, StdTolerance};
+use neural_network::module::activations;
+use neural_network::module::layers::{Dense, TrainableLayer};
 use neural_network::optimizers::Optimizer;
-use neural_network::{activations, initializer, loss, optimizers, regularizer};
+use neural_network::{initializer, loss, optimizers, regularizer};
 use plotters::prelude::*;
 use rand::distr::Distribution;
 use rand_distr::Normal;

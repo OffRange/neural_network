@@ -1,4 +1,4 @@
-use crate::layers::TrainableLayer;
+use crate::module::layers::TrainableLayer;
 use crate::optimizers::Optimizer;
 use std::ops::{Mul, SubAssign};
 
@@ -78,12 +78,8 @@ mod tests {
             [-0.6999999500000027, -0.5999999750000006],
         ];
         let expected_biases = array![-0.89999990000001, -0.7999999500000026];
-        let expected_weights_cache = array![
-            [1., 4.],
-            [4., 16.],
-        ];
+        let expected_weights_cache = array![[1., 4.], [4., 16.],];
         let expected_biases_cache = array![1., 4.];
-
 
         assert_arr_eq_approx!(layer.weights(), expected_weights);
         assert_arr_eq_approx!(layer.biases(), expected_biases);

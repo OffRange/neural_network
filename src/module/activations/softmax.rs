@@ -1,4 +1,4 @@
-use crate::activations::ActivationFn;
+use crate::{Module, State};
 use ndarray::Array2;
 
 #[derive(Default)]
@@ -6,7 +6,7 @@ pub struct Softmax {
     output: Option<Array2<f64>>,
 }
 
-impl ActivationFn for Softmax {
+impl Module for Softmax {
     fn forward(&mut self, input: &Array2<f64>) -> Array2<f64> {
         let max = input
             .map_axis(ndarray::Axis(1), |row| {
@@ -49,7 +49,7 @@ impl ActivationFn for Softmax {
     /// # Returns
     ///
     /// * An `Array2<f64>` representing the gradient of the loss with respect to the activations input.
-    fn backward(&self, d_values: &Array2<f64>) -> Array2<f64> {
+    fn backward(&mut self, d_values: &Array2<f64>) -> Array2<f64> {
         let output = self
             .output
             .as_ref()
@@ -80,6 +80,8 @@ impl ActivationFn for Softmax {
 
         unsafe { gradient.assume_init() }
     }
+
+    fn update_state(&mut self, _state: State) {}
 }
 
 #[cfg(test)]
@@ -112,7 +114,7 @@ mod tests {
 
         let expected = ndarray::array![[-85., -32., -45.], [-172., -210., -41.]];
 
-        let softmax = Softmax {
+        let mut softmax = Softmax {
             output: Some(softmax_out),
         };
         let d = softmax.backward(&dvalues);

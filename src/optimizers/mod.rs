@@ -1,14 +1,14 @@
-mod sgd;
 mod adagrad;
-mod rmsprop;
 mod adam;
+mod rmsprop;
+mod sgd;
 
 pub use adagrad::*;
 pub use adam::*;
 pub use rmsprop::*;
 pub use sgd::*;
 
-use crate::layers::TrainableLayer;
+use crate::module::layers::TrainableLayer;
 
 pub trait Optimizer {
     fn update<L>(&mut self, layer: &mut L)
@@ -23,7 +23,7 @@ pub trait Optimizer {
 mod test {
     use super::*;
     use crate::initializer;
-    use crate::layers::{Dense, Layer};
+    use crate::module::{Module, layers::Dense};
     use ndarray::array;
 
     pub(super) fn prepared_layer() -> Dense {

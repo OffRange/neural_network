@@ -1,4 +1,4 @@
-use crate::layers::TrainableLayer;
+use crate::module::layers::TrainableLayer;
 use crate::optimizers::Optimizer;
 use std::ops::SubAssign;
 
@@ -35,7 +35,6 @@ impl Optimizer for RMSProp {
             let cache = layer.weight_cache_mut();
             cache.zip_mut_with(&g, |c, g| *c = self.roh * *c + (1. - self.roh) * g.powi(2));
 
-
             let update = self.current_lr * g / (cache.sqrt() + self.epsilon);
             layer.weights_mut().sub_assign(&update);
         }
@@ -45,7 +44,6 @@ impl Optimizer for RMSProp {
             let g = layer.biases_gradient().clone();
             let cache = layer.bias_cache_mut();
             cache.zip_mut_with(&g, |c, g| *c = self.roh * *c + (1. - self.roh) * g.powi(2));
-
 
             let update = self.current_lr * g / (cache.sqrt() + self.epsilon);
             layer.biases_mut().sub_assign(&update);
@@ -83,11 +81,10 @@ mod test {
         ];
         let expected_biases = array![0.09683772333983132, 0.19683772283983156];
         let expected_weights_cache = array![
-            [0.09999999999999998, 0.3999999999999999 ],
-            [0.3999999999999999, 1.5999999999999996 ]
+            [0.09999999999999998, 0.3999999999999999],
+            [0.3999999999999999, 1.5999999999999996]
         ];
         let expected_biases_cache = array![0.1, 0.4];
-
 
         assert_arr_eq_approx!(layer.weights(), expected_weights);
         assert_arr_eq_approx!(layer.biases(), expected_biases);

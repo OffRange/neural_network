@@ -1,17 +1,19 @@
-use crate::activations::ActivationFn;
+use crate::{Module, State};
 use ndarray::Array2;
 
 #[derive(Default)]
 pub struct Linear;
 
-impl ActivationFn for Linear {
+impl Module for Linear {
     fn forward(&mut self, x: &Array2<f64>) -> Array2<f64> {
         x.clone()
     }
 
-    fn backward(&self, d_values: &Array2<f64>) -> Array2<f64> {
+    fn backward(&mut self, d_values: &Array2<f64>) -> Array2<f64> {
         d_values.clone()
     }
+
+    fn update_state(&mut self, _state: State) {}
 }
 
 #[cfg(test)]

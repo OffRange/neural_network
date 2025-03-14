@@ -1,4 +1,4 @@
-use crate::layers::TrainableLayer;
+use crate::module::layers::TrainableLayer;
 use crate::optimizers::Optimizer;
 
 pub struct SGD {
@@ -27,29 +27,31 @@ impl Optimizer for SGD {
         L: TrainableLayer,
     {
         if self.momentum != 0.0 {
-            let w_momentum = self.momentum * layer.weight_cache()
-                - self.current_lr * layer.weights_gradient();
+            let w_momentum =
+                self.momentum * layer.weight_cache() - self.current_lr * layer.weights_gradient();
 
-            let b_momentum = self.momentum * layer.bias_cache()
-                - self.current_lr * layer.biases_gradient();
+            let b_momentum =
+                self.momentum * layer.bias_cache() - self.current_lr * layer.biases_gradient();
 
             layer.weight_cache_mut().assign(&w_momentum);
             layer.bias_cache_mut().assign(&b_momentum);
 
-            layer.weights_mut().zip_mut_with(&w_momentum, |w, m| *w += m);
+            layer
+                .weights_mut()
+                .zip_mut_with(&w_momentum, |w, m| *w += m);
             layer.biases_mut().zip_mut_with(&b_momentum, |w, m| *w += m);
 
             return;
         }
 
         let g = layer.weights_gradient().clone();
-        layer.weights_mut().zip_mut_with(&g, |w, g| {
-            *w -= self.current_lr * g
-        });
+        layer
+            .weights_mut()
+            .zip_mut_with(&g, |w, g| *w -= self.current_lr * g);
         let g = layer.biases_gradient().clone();
-        layer.biases_mut().zip_mut_with(&g, |b, g| {
-            *b -= self.current_lr * g
-        });
+        layer
+            .biases_mut()
+            .zip_mut_with(&g, |b, g| *b -= self.current_lr * g);
     }
 
     fn learning_rate(&self) -> f64 {
@@ -77,15 +79,9 @@ mod tests {
         sgd.pre_update();
         sgd.update(&mut layer);
 
-        let expected_weights = array![
-            [0., 0.],
-            [0.1, 0.],
-        ];
+        let expected_weights = array![[0., 0.], [0.1, 0.],];
         let expected_biases = array![0., 0.];
-        let expected_weights_cache = array![
-            [-0.1, -0.2],
-            [-0.2, -0.4],
-        ];
+        let expected_weights_cache = array![[-0.1, -0.2], [-0.2, -0.4],];
         let expected_biases_cache = array![-0.1, -0.2];
 
         assert_arr_eq_approx!(layer.weights(), expected_weights);
@@ -101,10 +97,7 @@ mod tests {
         sdg.pre_update();
         sdg.update(&mut layer);
 
-        let expected_weights = array![
-            [0., 0.],
-            [0.1, 0.],
-        ];
+        let expected_weights = array![[0., 0.], [0.1, 0.],];
 
         let expected_biases = array![0., 0.];
 

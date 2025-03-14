@@ -1,5 +1,6 @@
+use crate::Module;
 use crate::initializer::Initializer;
-use crate::layers::{Layer, TrainableLayer};
+use crate::module::layers::TrainableLayer;
 use crate::regularizer::Regularizer;
 use crate::state::State;
 use ndarray::prelude::*;
@@ -86,7 +87,7 @@ impl Dense {
     }
 }
 
-impl Layer for Dense {
+impl Module for Dense {
     fn forward(&mut self, input: &Array2<f64>) -> Array2<f64> {
         self.input = Some(input.clone());
         input.dot(&self.weights) + &self.biases

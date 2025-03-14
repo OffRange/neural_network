@@ -1,15 +1,13 @@
 use byteorder::{BigEndian, ReadBytesExt};
 use ndarray::{Array1, Array2, Axis, Ix1, Ix2, s};
-use neural_network::activations::ActivationFn;
+use neural_network::Module;
 use neural_network::data::{Dataset, NNDataset};
-use neural_network::layers::Layer;
 use neural_network::loss::Loss;
 use neural_network::metric::Metric;
+use neural_network::module::{activations, layers};
 use neural_network::optimizers::Optimizer;
 use neural_network::utils::Argmax;
-use neural_network::{
-    State, activations, initializer, layers, loss, metric, optimizers, regularizer,
-};
+use neural_network::{State, initializer, loss, metric, optimizers, regularizer};
 use std::fs::File;
 use std::io;
 use std::io::{BufReader, Read};

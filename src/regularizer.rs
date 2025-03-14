@@ -174,7 +174,10 @@ mod tests {
     use super::*;
     use crate::assert_arr_eq_approx;
     use crate::initializer::test::ConstantInitializer;
-    use crate::layers::{Dense, Layer, TrainableLayer};
+    use crate::module::{
+        Module,
+        layers::{Dense, TrainableLayer},
+    };
     use ndarray::{Array1, Array2};
 
     #[test]

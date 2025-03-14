@@ -1,4 +1,4 @@
-use crate::activations::ActivationFn;
+use crate::{Module, State};
 use ndarray::Array2;
 
 #[derive(Default)]
@@ -6,14 +6,14 @@ pub struct Sigmoid {
     output: Option<Array2<f64>>,
 }
 
-impl ActivationFn for Sigmoid {
+impl Module for Sigmoid {
     fn forward(&mut self, input: &Array2<f64>) -> Array2<f64> {
         let output = input.mapv(|x| 1.0 / (1.0 + (-x).exp()));
         self.output = Some(output.clone());
         output
     }
 
-    fn backward(&self, d_values: &Array2<f64>) -> Array2<f64> {
+    fn backward(&mut self, d_values: &Array2<f64>) -> Array2<f64> {
         let output = self
             .output
             .as_ref()
@@ -21,13 +21,14 @@ impl ActivationFn for Sigmoid {
         let gradient = output.mapv(|x| x * (1.0 - x));
         d_values * gradient
     }
+
+    fn update_state(&mut self, _state: State) {}
 }
 
 #[cfg(test)]
 mod tests {
     use super::Sigmoid;
-    use crate::activations::ActivationFn;
-    use crate::assert_arr_eq_approx;
+    use crate::{Module, assert_arr_eq_approx};
     use ndarray::array;
 
     #[test]

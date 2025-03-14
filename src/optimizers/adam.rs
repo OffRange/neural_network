@@ -1,4 +1,4 @@
-use crate::layers::TrainableLayer;
+use crate::module::layers::TrainableLayer;
 use crate::optimizers::Optimizer;
 use std::ops::SubAssign;
 
@@ -39,17 +39,18 @@ impl Optimizer for Adam {
                 *m = self.beta1 * *m + (1. - self.beta1) * g;
             });
 
-            let momentum_corrected = momentum.map(|m| m / (1. - self.beta1.powi(self.iteration as i32)));
+            let momentum_corrected =
+                momentum.map(|m| m / (1. - self.beta1.powi(self.iteration as i32)));
 
             let cache = layer.weight_cache_mut();
             cache.zip_mut_with(&gradient, |c, g| {
                 *c = self.beta2 * *c + (1. - self.beta2) * g.powi(2);
             });
 
-
             let cache_corrected = cache.map(|c| c / (1. - self.beta2.powi(self.iteration as i32)));
 
-            let update = self.current_lr * momentum_corrected / (cache_corrected.sqrt() + self.epsilon);
+            let update =
+                self.current_lr * momentum_corrected / (cache_corrected.sqrt() + self.epsilon);
             layer.weights_mut().sub_assign(&update);
         }
 
@@ -61,7 +62,8 @@ impl Optimizer for Adam {
                 *m = self.beta1 * *m + (1. - self.beta1) * g;
             });
 
-            let momentum_corrected = momentum.map(|m| m / (1. - self.beta1.powi(self.iteration as i32)));
+            let momentum_corrected =
+                momentum.map(|m| m / (1. - self.beta1.powi(self.iteration as i32)));
 
             let cache = layer.bias_cache_mut();
             cache.zip_mut_with(&gradient, |c, g| {
@@ -70,7 +72,8 @@ impl Optimizer for Adam {
 
             let cache_corrected = cache.map(|c| c / (1. - self.beta2.powi(self.iteration as i32)));
 
-            let update = self.current_lr * momentum_corrected / (cache_corrected.sqrt() + self.epsilon);
+            let update =
+                self.current_lr * momentum_corrected / (cache_corrected.sqrt() + self.epsilon);
             layer.biases_mut().sub_assign(&update);
         }
     }
