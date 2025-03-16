@@ -18,7 +18,7 @@ optimizer_builder! {
 impl Optimizer for AdaGrad {
     fn update<L>(&mut self, layer: &mut L)
     where
-        L: TrainableLayer,
+        L: ?Sized + TrainableLayer,
     {
         // Weights
         {

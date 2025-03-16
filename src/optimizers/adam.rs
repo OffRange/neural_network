@@ -20,7 +20,7 @@ optimizer_builder! {
 impl Optimizer for Adam {
     fn update<L>(&mut self, layer: &mut L)
     where
-        L: TrainableLayer,
+        L: ?Sized + TrainableLayer,
     {
         // Weights
         {

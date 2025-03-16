@@ -1,4 +1,5 @@
 use crate::State;
+use crate::module::layers::TrainableLayer;
 use ndarray::Array2;
 
 pub mod activations;
@@ -27,5 +28,9 @@ pub trait Module {
     /// * An `Array2<f64>` representing the gradient of the loss with respect to the module's input.
     fn backward(&mut self, d_value: &Array2<f64>) -> Array2<f64>;
 
-    fn update_state(&mut self, state: State);
+    fn update_state(&mut self, _state: State) {}
+
+    fn as_trainable_mut(&mut self) -> Option<&mut dyn TrainableLayer> {
+        None
+    }
 }

@@ -13,7 +13,7 @@ use crate::module::layers::TrainableLayer;
 pub trait Optimizer {
     fn update<L>(&mut self, layer: &mut L)
     where
-        L: TrainableLayer;
+        L: TrainableLayer + ?Sized;
 
     fn learning_rate(&self) -> f64;
     fn pre_update(&mut self);

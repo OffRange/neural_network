@@ -19,7 +19,7 @@ optimizer_builder! {
 impl Optimizer for RMSProp {
     fn update<L>(&mut self, layer: &mut L)
     where
-        L: TrainableLayer,
+        L: ?Sized + TrainableLayer,
     {
         // Weights
         {

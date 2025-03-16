@@ -2,7 +2,6 @@ use crate::Module;
 use crate::initializer::Initializer;
 use crate::module::layers::TrainableLayer;
 use crate::regularizer::Regularizer;
-use crate::state::State;
 use ndarray::prelude::*;
 use ndarray_rand::RandomExt;
 
@@ -118,7 +117,9 @@ impl Module for Dense {
         value.dot(&self.weights.t())
     }
 
-    fn update_state(&mut self, _state: State) {}
+    fn as_trainable_mut(&mut self) -> Option<&mut dyn TrainableLayer> {
+        Some(self)
+    }
 }
 
 impl TrainableLayer for Dense {
