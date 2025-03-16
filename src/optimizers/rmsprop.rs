@@ -1,25 +1,17 @@
 use crate::module::layers::TrainableLayer;
+use crate::optimizer_builder;
 use crate::optimizers::Optimizer;
 use std::ops::SubAssign;
 
-pub struct RMSProp {
-    lr: f64,
-    decay: f64,
-    epsilon: f64,
-    roh: f64,
-    iteration: usize,
-    current_lr: f64,
-}
-
-impl RMSProp {
-    pub fn new(lr: f64, decay: f64, epsilon: f64, roh: f64) -> Self {
-        Self {
-            lr,
-            decay,
-            epsilon,
-            roh,
-            iteration: 0,
-            current_lr: lr,
+optimizer_builder! {
+    pub struct RMSPropBuilder for RMSProp {
+        lr: f64 = 0.01,
+        decay: f64 = 0.,
+        epsilon: f64 = 1e-7,
+        roh: f64 = 0.9;
+        internal = {
+            iteration: usize = 0,
+            current_lr: f64 = lr,
         }
     }
 }

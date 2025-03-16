@@ -1,22 +1,15 @@
 use crate::module::layers::TrainableLayer;
+use crate::optimizer_builder;
 use crate::optimizers::Optimizer;
 
-pub struct SGD {
-    lr: f64,
-    momentum: f64,
-    decay: f64,
-    iteration: usize,
-    current_lr: f64,
-}
-
-impl SGD {
-    pub fn new(lr: f64, momentum: f64, decay: f64) -> Self {
-        Self {
-            lr,
-            momentum,
-            decay,
-            iteration: 0,
-            current_lr: lr,
+optimizer_builder! {
+    pub struct SGDBuilder for SGD {
+        lr: f64 = 0.01,
+        momentum: f64 = 0.,
+        decay: f64 = 0.;
+        internal = {
+            iteration: usize = 0,
+            current_lr: f64 = lr,
         }
     }
 }

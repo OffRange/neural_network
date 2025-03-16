@@ -1,23 +1,16 @@
 use crate::module::layers::TrainableLayer;
+use crate::optimizer_builder;
 use crate::optimizers::Optimizer;
 use std::ops::{Mul, SubAssign};
 
-pub struct AdaGrad {
-    lr: f64,
-    decay: f64,
-    epsilon: f64,
-    iteration: usize,
-    current_lr: f64,
-}
-
-impl AdaGrad {
-    pub fn new(lr: f64, decay: f64, epsilon: f64) -> Self {
-        Self {
-            lr,
-            decay,
-            epsilon,
-            iteration: 0,
-            current_lr: lr,
+optimizer_builder! {
+    pub struct AdaGradBuilder for AdaGrad {
+        lr: f64 = 0.001,
+        decay: f64 = 0.,
+        epsilon: f64 = 1e-7;
+        internal = {
+            iteration: usize = 0,
+            current_lr: f64 = lr,
         }
     }
 }

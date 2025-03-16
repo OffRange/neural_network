@@ -1,27 +1,18 @@
 use crate::module::layers::TrainableLayer;
+use crate::optimizer_builder;
 use crate::optimizers::Optimizer;
 use std::ops::SubAssign;
 
-pub struct Adam {
-    lr: f64,
-    lr_decay: f64,
-    epsilon: f64,
-    beta1: f64,
-    beta2: f64,
-    iteration: usize,
-    current_lr: f64,
-}
-
-impl Adam {
-    pub fn new(lr: f64, lr_decay: f64, epsilon: f64, beta1: f64, beta2: f64) -> Self {
-        Self {
-            lr,
-            lr_decay,
-            epsilon,
-            beta1,
-            beta2,
-            iteration: 0,
-            current_lr: lr,
+optimizer_builder! {
+    pub struct AdamBuilder for Adam {
+        lr: f64 = 0.001,
+        lr_decay: f64 = 0.,
+        epsilon: f64 = 1e-7,
+        beta1: f64 = 0.9,
+        beta2: f64 = 0.999;
+        internal = {
+            iteration: usize = 0,
+            current_lr: f64 = lr,
         }
     }
 }
