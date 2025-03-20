@@ -4,8 +4,8 @@ mod dropout;
 pub use dense::*;
 pub use dropout::*;
 
-use crate::Module;
 use crate::regularizer::Regularizer;
+use crate::Module;
 use ndarray::{Array1, Array2, ArrayViewMut1, ArrayViewMut2, Ix1, Ix2};
 
 pub trait TrainableLayer: Module {

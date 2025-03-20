@@ -1,7 +1,7 @@
-use crate::Module;
 use crate::initializer::Initializer;
 use crate::module::layers::TrainableLayer;
 use crate::regularizer::Regularizer;
+use crate::Module;
 use ndarray::prelude::*;
 use ndarray_rand::RandomExt;
 
@@ -87,12 +87,15 @@ impl Dense {
 }
 
 impl Module for Dense {
-    fn forward(&mut self, input: &Array2<f64>) -> Array2<f64> {
+    type Input = Ix2;
+    type Output = Ix2;
+
+    fn forward(&mut self, input: &Array<f64, Self::Input>) -> Array<f64, Self::Output> {
         self.input = Some(input.clone());
         input.dot(&self.weights) + &self.biases
     }
 
-    fn backward(&mut self, value: &Array2<f64>) -> Array2<f64> {
+    fn backward(&mut self, value: &Array<f64, Self::Output>) -> Array<f64, Self::Input> {
         let input = self
             .input
             .as_ref()
@@ -117,7 +120,9 @@ impl Module for Dense {
         value.dot(&self.weights.t())
     }
 
-    fn as_trainable_mut(&mut self) -> Option<&mut dyn TrainableLayer> {
+    fn as_trainable_mut(
+        &mut self,
+    ) -> Option<&mut dyn TrainableLayer<Input = Self::Input, Output = Self::Output>> {
         Some(self)
     }
 }
@@ -193,7 +198,7 @@ mod tests {
     use super::*;
     use crate::initializer::test::ConstantInitializer;
     use crate::{assert_arr_eq_approx, assert_eq_approx};
-    use ndarray::{Array2, array};
+    use ndarray::{array, Array2};
 
     #[test]
     fn test_dense_new_shapes_and_values() {

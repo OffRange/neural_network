@@ -1,18 +1,24 @@
 use crate::{Module, State};
-use ndarray::Array2;
+use ndarray::{Array, Dimension};
 
 #[derive(Default)]
-pub struct ReLU {
-    input: Option<Array2<f64>>,
+pub struct ReLU<D> {
+    input: Option<Array<f64, D>>,
 }
 
-impl Module for ReLU {
-    fn forward(&mut self, input: &Array2<f64>) -> Array2<f64> {
+impl<D> Module for ReLU<D>
+where
+    D: Dimension,
+{
+    type Input = D;
+    type Output = D;
+
+    fn forward(&mut self, input: &Array<f64, D>) -> Array<f64, D> {
         self.input = Some(input.clone());
         input.map(|x| x.max(0.0))
     }
 
-    fn backward(&mut self, d_values: &Array2<f64>) -> Array2<f64> {
+    fn backward(&mut self, d_values: &Array<f64, D>) -> Array<f64, D> {
         self.input
             .as_ref()
             .expect("input was not set. Please run the forward pass first.")

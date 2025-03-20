@@ -1,23 +1,23 @@
-use crate::Module;
 use crate::state::State;
+use crate::Module;
 use ndarray::prelude::*;
-use ndarray_rand::RandomExt;
 use ndarray_rand::rand_distr::Bernoulli;
+use ndarray_rand::RandomExt;
 
 // TODO write tests for the dropout layers
-pub struct Dropout {
+pub struct Dropout<D> {
     keep_prob: f64,
-    mask: Option<Array2<f64>>,
+    mask: Option<Array<f64, D>>,
     state: State,
 }
 
-impl Default for Dropout {
+impl<D> Default for Dropout<D> {
     fn default() -> Self {
         Self::new(0.5)
     }
 }
 
-impl Dropout {
+impl<D> Dropout<D> {
     pub fn new(dropout_rate: f64) -> Self {
         assert!(
             dropout_rate > 0.0 && dropout_rate <= 1.0,
@@ -31,20 +31,27 @@ impl Dropout {
     }
 }
 
-impl Module for Dropout {
-    fn forward(&mut self, input: &Array2<f64>) -> Array2<f64> {
+impl<D> Module for Dropout<D>
+where
+    D: Dimension,
+{
+    type Input = D;
+    type Output = D;
+
+    fn forward(&mut self, input: &Array<f64, D>) -> Array<f64, D> {
         if self.state == State::Evaluating {
             return input.clone();
         }
 
-        let mask = Array2::<bool>::random(input.raw_dim(), Bernoulli::new(self.keep_prob).unwrap());
+        let mask =
+            Array::<bool, D>::random(input.raw_dim(), Bernoulli::new(self.keep_prob).unwrap());
         self.mask = Some(mask.mapv(f64::from));
 
         // Scaled to ensure that the overall expected summ remains the same.
         input * self.mask.as_ref().unwrap() / self.keep_prob
     }
 
-    fn backward(&mut self, d_value: &Array2<f64>) -> Array2<f64> {
+    fn backward(&mut self, d_value: &Array<f64, D>) -> Array<f64, D> {
         if self.state == State::Evaluating {
             return d_value.clone();
         }

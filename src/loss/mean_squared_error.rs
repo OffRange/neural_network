@@ -4,7 +4,7 @@ use ndarray::{Array, Array2, Ix2};
 #[derive(Default)]
 pub struct MeanSquaredError;
 
-impl Loss<Ix2, f64> for MeanSquaredError {
+impl Loss<f64, Ix2, Ix2> for MeanSquaredError {
     fn calculate(&self, y_pred: &Array2<f64>, y_true: &Array<f64, Ix2>) -> f64 {
         (y_true - y_pred).pow2().mean().unwrap()
     }

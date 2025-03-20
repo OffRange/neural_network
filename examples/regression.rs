@@ -1,11 +1,11 @@
-use ndarray::{Array1, Array2, Axis, Ix1, stack};
-use neural_network::Module;
+use ndarray::{stack, Array1, Array2, Axis, Ix1};
 use neural_network::data::{Dataset, NNDataset};
 use neural_network::loss::Loss;
 use neural_network::metric::{Metric, RegressionAccuracy, StdTolerance};
 use neural_network::module::activations;
 use neural_network::module::layers::{Dense, TrainableLayer};
 use neural_network::optimizers::Optimizer;
+use neural_network::Module;
 use neural_network::{initializer, loss, optimizers, regularizer};
 use plotters::prelude::*;
 use rand::distr::Distribution;
@@ -43,7 +43,7 @@ fn main() {
         Some(Box::new(regularizer::L2::new(5e-4))),
         None,
     );
-    let mut activation3 = activations::Linear;
+    let mut activation3 = activations::Linear::default();
 
     let loss = loss::MeanSquaredError;
     let mut optimizer = optimizers::Adam::new(0.0005, 1e-3, 1e-7, 0.9, 0.999);

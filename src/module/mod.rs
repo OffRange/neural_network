@@ -1,11 +1,14 @@
-use crate::State;
 use crate::module::layers::TrainableLayer;
-use ndarray::Array2;
+use crate::State;
+use ndarray::{Array, Dimension};
 
 pub mod activations;
 pub mod layers;
 
 pub trait Module {
+    type Input: Dimension;
+    type Output: Dimension;
+
     /// Performs the forward pass for this module.
     ///
     /// # Arguments
@@ -15,7 +18,7 @@ pub trait Module {
     /// # Returns
     ///
     /// * An `Array2<f64>` representing the output of this module.
-    fn forward(&mut self, input: &Array2<f64>) -> Array2<f64>;
+    fn forward(&mut self, input: &Array<f64, Self::Input>) -> Array<f64, Self::Output>;
 
     /// Performs the backward pass for this module.
     ///
@@ -26,11 +29,13 @@ pub trait Module {
     /// # Returns
     ///
     /// * An `Array2<f64>` representing the gradient of the loss with respect to the module's input.
-    fn backward(&mut self, d_value: &Array2<f64>) -> Array2<f64>;
+    fn backward(&mut self, d_value: &Array<f64, Self::Output>) -> Array<f64, Self::Input>;
 
     fn update_state(&mut self, _state: State) {}
 
-    fn as_trainable_mut(&mut self) -> Option<&mut dyn TrainableLayer> {
+    fn as_trainable_mut(
+        &mut self,
+    ) -> Option<&mut dyn TrainableLayer<Input = Self::Input, Output = Self::Output>> {
         None
     }
 }

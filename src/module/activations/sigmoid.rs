@@ -1,19 +1,25 @@
 use crate::{Module, State};
-use ndarray::Array2;
+use ndarray::{Array, Dimension};
 
 #[derive(Default)]
-pub struct Sigmoid {
-    output: Option<Array2<f64>>,
+pub struct Sigmoid<D> {
+    output: Option<Array<f64, D>>,
 }
 
-impl Module for Sigmoid {
-    fn forward(&mut self, input: &Array2<f64>) -> Array2<f64> {
+impl<D> Module for Sigmoid<D>
+where
+    D: Dimension,
+{
+    type Input = D;
+    type Output = D;
+
+    fn forward(&mut self, input: &Array<f64, D>) -> Array<f64, D> {
         let output = input.mapv(|x| 1.0 / (1.0 + (-x).exp()));
         self.output = Some(output.clone());
         output
     }
 
-    fn backward(&mut self, d_values: &Array2<f64>) -> Array2<f64> {
+    fn backward(&mut self, d_values: &Array<f64, D>) -> Array<f64, D> {
         let output = self
             .output
             .as_ref()
@@ -28,7 +34,7 @@ impl Module for Sigmoid {
 #[cfg(test)]
 mod tests {
     use super::Sigmoid;
-    use crate::{Module, assert_arr_eq_approx};
+    use crate::{assert_arr_eq_approx, Module};
     use ndarray::array;
 
     #[test]

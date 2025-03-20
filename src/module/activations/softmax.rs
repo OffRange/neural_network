@@ -1,22 +1,46 @@
 use crate::{Module, State};
-use ndarray::Array2;
+use ndarray::{Array, Axis, Dimension, Ix2};
 
-#[derive(Default)]
-pub struct Softmax {
-    output: Option<Array2<f64>>,
+pub struct Softmax<D> {
+    output: Option<Array<f64, D>>,
+    axis: Axis,
 }
 
-impl Module for Softmax {
-    fn forward(&mut self, input: &Array2<f64>) -> Array2<f64> {
-        let max = input
-            .map_axis(ndarray::Axis(1), |row| {
-                row.iter().copied().reduce(f64::max).unwrap()
-            })
-            .insert_axis(ndarray::Axis(1));
+impl<D> Default for Softmax<D>
+where
+    D: Dimension,
+{
+    fn default() -> Self {
+        Self {
+            output: None,
+            axis: Axis(D::NDIM.expect("NDIM is not defined") - 1),
+        }
+    }
+}
 
-        let exp = (input - max).exp();
-        let sum = exp.sum_axis(ndarray::Axis(1)).insert_axis(ndarray::Axis(1));
-        let out = exp / sum;
+impl Module for Softmax<Ix2> {
+    type Input = Ix2;
+    type Output = Ix2;
+
+    fn forward(&mut self, input: &Array<f64, Ix2>) -> Array<f64, Ix2> {
+        let axis = self.axis;
+        let max = input.fold_axis(axis, f64::NEG_INFINITY, |acc, &x| acc.max(x));
+
+        let max_extended = max.insert_axis(axis);
+        let max_extended = max_extended
+            .broadcast(input.raw_dim())
+            .expect("Can not broadcast");
+
+        let exp = (input - &max_extended).exp();
+
+        let sum = exp.sum_axis(axis);
+
+        let sum_extended = sum.insert_axis(axis);
+        let sum_extended = sum_extended
+            .broadcast(input.raw_dim())
+            .expect("Can not broadcast");
+
+        let out = exp / sum_extended;
         self.output = Some(out.clone());
         out
     }
@@ -49,12 +73,12 @@ impl Module for Softmax {
     /// # Returns
     ///
     /// * An `Array2<f64>` representing the gradient of the loss with respect to the activations input.
-    fn backward(&mut self, d_values: &Array2<f64>) -> Array2<f64> {
+    fn backward(&mut self, d_values: &Array<f64, Ix2>) -> Array<f64, Ix2> {
         let output = self
             .output
             .as_ref()
             .expect("output was not set. Please run the forward pass first.");
-        let mut gradient = Array2::<f64>::uninit(output.raw_dim());
+        let mut gradient = Array::<f64, Ix2>::uninit(output.raw_dim());
 
         for (i, (sample_softmax_out, d_value_sample)) in
             output.outer_iter().zip(d_values.outer_iter()).enumerate()
@@ -116,6 +140,7 @@ mod tests {
 
         let mut softmax = Softmax {
             output: Some(softmax_out),
+            axis: Axis(1),
         };
         let d = softmax.backward(&dvalues);
 
