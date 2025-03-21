@@ -1,17 +1,17 @@
-use ndarray::{Array1, Array2, Axis, Ix1, Ix2, array};
-use neural_network::Module;
+use ndarray::{array, Array1, Array2, Axis, Ix1, Ix2};
 use neural_network::data::{Dataset, NNDataset};
 use neural_network::loss::Loss;
 use neural_network::metric::Metric;
 use neural_network::module::{activations, layers};
 use neural_network::optimizers::Optimizer;
 use neural_network::utils::Argmax;
-use neural_network::{State, initializer, loss, metric, optimizers, regularizer};
+use neural_network::Module;
+use neural_network::{initializer, loss, metric, optimizers, regularizer, State};
 use plotters::backend::BitMapBackend;
 use plotters::chart::ChartBuilder;
 use plotters::drawing::IntoDrawingArea;
 use plotters::element::{Circle, Rectangle};
-use plotters::prelude::{BLACK, BLUE, CYAN, Color, GREEN, MAGENTA, RED, RGBColor, WHITE, YELLOW};
+use plotters::prelude::{Color, RGBColor, BLACK, BLUE, CYAN, GREEN, MAGENTA, RED, WHITE, YELLOW};
 use rand::distr::Distribution;
 use rand_distr::Normal;
 
@@ -44,7 +44,7 @@ fn main() {
     );
     let mut activation2 = activations::Softmax::default();
 
-    let loss = loss::CategoricalCrossEntropy::new(1e-7);
+    let loss = loss::SparseCategoricalCrossEntropy::new(1e-7);
 
     let mut optimizer = optimizers::Adam::new(0.02, 1e-5, 1e-7, 0.9, 0.999);
     //let mut optimizer = optimizer::SGD::new(1., 0., 1e-5);

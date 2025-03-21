@@ -37,7 +37,10 @@ impl BinaryCrossEntropy {
     }
 }
 
-impl Loss<Ix, Ix2, Ix2> for BinaryCrossEntropy {
+impl Loss<Ix> for BinaryCrossEntropy {
+    type PredDim = Ix2;
+    type TargetDim = Ix2;
+
     /// Calculates the binary cross entropy loss between the predicted probabilities and the true labels.
     ///
     /// The predicted probabilities are first clamped within the range

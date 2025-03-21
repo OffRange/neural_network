@@ -4,7 +4,10 @@ use ndarray::{Array, Array2, Ix2};
 #[derive(Default)]
 pub struct MeanAbsoluteError;
 
-impl Loss<f64, Ix2, Ix2> for MeanAbsoluteError {
+impl Loss<f64> for MeanAbsoluteError {
+    type PredDim = Ix2;
+    type TargetDim = Ix2;
+
     fn calculate(&self, y_pred: &Array2<f64>, y_true: &Array<f64, Ix2>) -> f64 {
         (y_true - y_pred).abs().mean().unwrap()
     }

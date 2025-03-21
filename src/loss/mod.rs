@@ -8,17 +8,21 @@ pub use categorical_cross_entropy::*;
 pub use mean_absolute_error::*;
 pub use mean_squared_error::*;
 
-use ndarray::Array;
+use ndarray::{Array, Dimension};
 
-pub trait Loss<T, PredDim, TrueDim>
-where
-    PredDim: ndarray::Dimension,
-    TrueDim: ndarray::Dimension,
-{
-    fn calculate(&self, y_pred: &Array<f64, PredDim>, y_true: &Array<T, TrueDim>) -> f64;
+pub trait Loss<T> {
+    type PredDim: Dimension;
+    type TargetDim: Dimension;
+
+    fn calculate(
+        &self,
+        y_pred: &Array<f64, Self::PredDim>,
+        y_true: &Array<T, Self::TargetDim>,
+    ) -> f64;
+
     fn backwards(
         &self,
-        y_pred: &Array<f64, PredDim>,
-        y_true: &Array<T, TrueDim>,
-    ) -> Array<f64, PredDim>;
+        y_pred: &Array<f64, Self::PredDim>,
+        y_true: &Array<T, Self::TargetDim>,
+    ) -> Array<f64, Self::PredDim>;
 }
