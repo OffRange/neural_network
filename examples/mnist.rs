@@ -1,148 +1,74 @@
 use byteorder::{BigEndian, ReadBytesExt};
-use ndarray::{Array1, Array2, Axis, Ix1, Ix2, s};
-use neural_network::Module;
+use ndarray::{s, Array1, Array2, Axis, Ix1, Ix2};
 use neural_network::data::{Dataset, NNDataset};
-use neural_network::loss::Loss;
 use neural_network::metric::Metric;
+use neural_network::model::LayerChain;
 use neural_network::module::{activations, layers};
-use neural_network::optimizers::Optimizer;
+use neural_network::sequential;
 use neural_network::utils::Argmax;
-use neural_network::{State, initializer, loss, metric, optimizers, regularizer};
+use neural_network::{initializer, loss, optimizers, regularizer};
 use std::fs::File;
 use std::io;
 use std::io::{BufReader, Read};
 
-fn main() {
+fn with_model() {
     let mnist = Mnist::new();
 
-    let mut layer1 = layers::Dense::new_with_regularizers::<initializer::He>(
-        784,
-        1024,
-        Some(Box::new(regularizer::L2::default())),
-        Some(Box::new(regularizer::L2::default())),
-    );
-    let mut activation1 = activations::ReLU::default();
-    let mut dropout1 = layers::Dropout::new(0.1);
+    let seq = sequential![
+        layers::Dense::new_with_regularizers::<initializer::He>(
+            784,
+            1024,
+            Some(Box::new(regularizer::L2::default())),
+            Some(Box::new(regularizer::L2::default())),
+        ),
+        activations::ReLU::default(),
+        layers::Dropout::new(0.1),
+        layers::Dense::new_with_regularizers::<initializer::He>(
+            1024,
+            512,
+            Some(Box::new(regularizer::L2::default())),
+            Some(Box::new(regularizer::L2::default())),
+        ),
+        activations::ReLU::default(),
+        layers::Dropout::new(0.1),
+        layers::Dense::new_with_regularizers::<initializer::He>(
+            512,
+            256,
+            Some(Box::new(regularizer::L2::default())),
+            Some(Box::new(regularizer::L2::default())),
+        ),
+        activations::ReLU::default(),
+        layers::Dropout::new(0.1),
+        layers::Dense::new_with_regularizers::<initializer::Xavier>(
+            256,
+            10,
+            Some(Box::new(regularizer::L2::default())),
+            Some(Box::new(regularizer::L2::default())),
+        ),
+        activations::Softmax::default(),
+    ];
 
-    let mut layer2 = layers::Dense::new_with_regularizers::<initializer::He>(
-        1024,
-        512,
-        Some(Box::new(regularizer::L2::default())),
-        Some(Box::new(regularizer::L2::default())),
-    );
-    let mut activation2 = activations::ReLU::default();
-    let mut dropout2 = layers::Dropout::new(0.1);
+    let loss = loss::SparseCategoricalCrossEntropy::new(1e-7);
+    let optim = optimizers::Adam::new(0.0005, 1e-5, 1e-7, 0.9, 0.999);
+    let mut model = seq.compile(loss, optim);
 
-    let mut layer3 = layers::Dense::new_with_regularizers::<initializer::He>(
-        512,
-        256,
-        Some(Box::new(regularizer::L2::default())),
-        Some(Box::new(regularizer::L2::default())),
-    );
-    let mut activation3 = activations::ReLU::default();
-    let mut dropout3 = layers::Dropout::new(0.1);
+    model.fit(&mnist.train_dataset, 300, 64, true, 100);
+    let (pred, test_loss) = model.evaluate(&mnist.test_dataset);
 
-    let mut layer4 = layers::Dense::new_with_regularizers::<initializer::Xavier>(
-        256,
-        10,
-        Some(Box::new(regularizer::L2::default())),
-        Some(Box::new(regularizer::L2::default())),
-    );
-    let mut activation4 = activations::Softmax::default();
+    println!("Test Loss: {:?}", test_loss);
 
-    let loss = loss::CategoricalCrossEntropy::new(1e-7);
-
-    let mut optimizer = optimizers::Adam::new(0.0005, 1e-5, 1e-7, 0.9, 0.999);
-
-    macro_rules! forward {
-        (&$x:ident) => {{
-            let layer1_out = layer1.forward(&$x);
-            let activation1_out = activation1.forward(&layer1_out);
-            let dropout1_out = dropout1.forward(&activation1_out);
-
-            let layer2_out = layer2.forward(&dropout1_out);
-            let activation2_out = activation2.forward(&layer2_out);
-            let dropout2_out = dropout2.forward(&activation2_out);
-
-            let layer3_out = layer3.forward(&dropout2_out);
-            let activation3_out = activation3.forward(&layer3_out);
-            let dropout3_out = dropout3.forward(&activation3_out);
-
-            let layer4_out = layer4.forward(&dropout3_out);
-            activation4.forward(&layer4_out)
-        }};
-    }
-
-    let epochs = 300;
-    for epoch in 1..=epochs {
-        let mut loss_value = 0.;
-        let mut acc_metric = 0.;
-        let mut c = 0.;
-        optimizer.pre_update();
-        for (train_x, train_y) in mnist.train_dataset.batch_iter(64, true) {
-            let out = forward!(&train_x);
-
-            // Loss
-            loss_value += loss.calculate(&out, &train_y);
-            acc_metric += metric::MultiClassAccuracy.evaluate(&out, &train_y);
-            c += 1.;
-
-            // Backward
-            let loss_back = loss.backwards(&out, &train_y);
-
-            let activation4_back = activation4.backward(&loss_back);
-            let layer4_back = layer4.backward(&activation4_back);
-
-            let dropout3_back = dropout3.backward(&layer4_back);
-            let activation3_back = activation3.backward(&dropout3_back);
-            let layer3_back = layer3.backward(&activation3_back);
-
-            let dropout2_back = dropout2.backward(&layer3_back);
-            let activation2_back = activation2.backward(&dropout2_back);
-            let layer2_back = layer2.backward(&activation2_back);
-
-            let dropout1_back = dropout1.backward(&layer2_back);
-            let activation1_back = activation1.backward(&dropout1_back);
-            let _layer1_back = layer1.backward(&activation1_back);
-
-            optimizer.update(&mut layer1);
-            optimizer.update(&mut layer2);
-            optimizer.update(&mut layer3);
-            optimizer.update(&mut layer4);
-        }
-
-        if epochs < 100 || epoch % 100 == 0 || epoch == 1 {
-            println!(
-                "Epoch: {}/{}: AVG Loss: {:?}, AVG Accuracy: {:?}, lr: {}",
-                epoch,
-                epochs,
-                loss_value / c,
-                acc_metric / c,
-                optimizer.learning_rate()
-            );
-        }
-    }
-
-    dropout1.update_state(State::Evaluating);
-    dropout2.update_state(State::Evaluating);
-    dropout3.update_state(State::Evaluating);
-
-    let test_x = mnist.test_dataset.inputs().to_owned();
-    let test_y = mnist.test_dataset.outputs().to_owned();
-    let activation3_out = forward!(&test_x);
-
-    let test_loss = loss.calculate(&activation3_out, &test_y);
-    let acc_test_metric = metric::MultiClassAccuracy.evaluate(&activation3_out, &test_y);
     println!(
-        "Test Loss: {:?}, Accuracy: {:?}",
-        test_loss, acc_test_metric
+        "Real labels: {:?}",
+        mnist.test_dataset.outputs().slice(s![0..10])
     );
-
-    println!("Real labels: {:?}", test_y.slice(s![0..10]));
     println!(
         "Prediction : {:?}",
-        activation3_out.slice(s![0..10, ..]).argmax(Axis(1))
+        pred.slice(s![0..10, ..]).argmax(Axis(1))
     );
+}
+
+fn main() {
+    with_model()
 }
 
 type MnistDataset = NNDataset<f64, usize, Ix2, Ix1>;

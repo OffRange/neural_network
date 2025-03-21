@@ -1,57 +1,124 @@
-use crate::Module;
 use crate::data::Dataset;
 use crate::loss::Loss;
 use crate::optimizers::Optimizer;
-use ndarray::{Array2, Dimension, Ix2};
+use crate::Module;
+use ndarray::{Array, Dimension};
 use std::marker::PhantomData;
 
-pub struct ModelArchitecture<O, LD, L>
-where
-    O: Optimizer,
-    L: Loss<LD, f64>,
-    LD: Dimension,
-{
-    _marker: PhantomData<LD>,
-    modules: Vec<Box<dyn Module>>,
-    optimizer: O,
-    loss: L,
+pub trait LayerChain<O> {
+    type Input: Dimension;
+    type Output: Dimension;
+
+    fn forward(&mut self, input: &Array<f64, Self::Input>) -> Array<f64, Self::Output>;
+    fn backward(&mut self, grad: &Array<f64, Self::Output>) -> Array<f64, Self::Input>;
+
+    fn update(&mut self, optimizer: &mut O);
+
+    fn compile<T, L>(self, loss: L, optimizer: O) -> CompiledModel<Self, T, L, O>
+    where
+        L: Loss<T, PredDim = Self::Output>,
+        O: Optimizer,
+        T: Clone,
+        Self: Sized,
+    {
+        CompiledModel::new(self, loss, optimizer)
+    }
 }
 
-impl<O, LD, L> ModelArchitecture<O, LD, L>
+impl<M, O> LayerChain<O> for M
 where
+    M: Module,
     O: Optimizer,
-    L: Loss<LD, f64>,
-    LD: Dimension,
 {
-    pub fn new(optimizer: O, loss: L) -> Self {
+    type Input = M::Input;
+    type Output = M::Output;
+
+    fn forward(&mut self, input: &Array<f64, Self::Input>) -> Array<f64, Self::Output> {
+        self.forward(input)
+    }
+
+    fn backward(&mut self, grad: &Array<f64, Self::Output>) -> Array<f64, Self::Input> {
+        self.backward(grad)
+    }
+
+    fn update(&mut self, optimizer: &mut O) {
+        if let Some(trainable) = self.as_trainable_mut() {
+            optimizer.update(trainable)
+        }
+    }
+}
+
+impl<Head, Tail, O> LayerChain<O> for (Head, Tail)
+where
+    Head: LayerChain<O>,
+    Tail: LayerChain<O, Input = Head::Output>,
+    O: Optimizer,
+{
+    type Input = Head::Input;
+    type Output = Tail::Output;
+
+    fn forward(&mut self, input: &Array<f64, Self::Input>) -> Array<f64, Self::Output> {
+        let (head, tail) = self;
+        let output = head.forward(input);
+        tail.forward(&output)
+    }
+
+    fn backward(&mut self, grad: &Array<f64, Self::Output>) -> Array<f64, Self::Input> {
+        let (head, tail) = self;
+        let grad = tail.backward(grad);
+        head.backward(&grad)
+    }
+
+    fn update(&mut self, optimizer: &mut O) {
+        let (head, tail) = self;
+        head.update(optimizer);
+        tail.update(optimizer);
+    }
+}
+
+#[macro_export]
+macro_rules! sequential {
+    ($module:expr $(,)?) => {
+        $module
+    };
+
+    ($module:expr, $($rest:expr),+ $(,)?) => {
+        ($module, $crate::sequential!($($rest),+))
+    };
+}
+
+pub struct CompiledModel<C, T, L, O>
+where
+    C: LayerChain<O>,
+{
+    _marker: PhantomData<T>,
+    chain: C,
+    loss: L,
+    optimizer: O,
+}
+
+impl<C, T, L, O> CompiledModel<C, T, L, O>
+where
+    C: LayerChain<O>,
+    L: Loss<T, PredDim = C::Output>,
+    T: Clone,
+    O: Optimizer,
+{
+    pub fn new(chain: C, loss: L, optimizer: O) -> Self {
         Self {
             _marker: PhantomData,
-            modules: Vec::new(),
-            optimizer,
+            chain,
             loss,
+            optimizer,
         }
     }
 
-    pub fn add_module<M>(&mut self, module: M)
-    where
-        M: Module + 'static,
-    {
-        self.modules.push(Box::new(module));
+    pub fn forward(&mut self, input: &Array<f64, C::Input>) -> Array<f64, C::Output> {
+        self.chain.forward(input)
     }
 
-    pub fn forward(&mut self, x: &Array2<f64>) -> Array2<f64> {
-        let mut output = x.to_owned();
-        for module in self.modules.iter_mut() {
-            output = module.forward(&output);
-        }
-        output
-    }
-
-    pub fn backward(&mut self, grad: &Array2<f64>) {
-        let mut grad = grad.to_owned();
-        for module in self.modules.iter_mut().rev() {
-            grad = module.backward(&grad);
-        }
+    pub fn backward(&mut self, grad: &Array<f64, C::Output>) -> Array<f64, C::Input> {
+        self.chain.backward(grad)
     }
 
     pub fn fit<D>(
@@ -62,10 +129,11 @@ where
         shuffle: bool,
         print_every: usize,
     ) where
-        D: Dataset<InType = f64, InDim = Ix2, OutDim = LD, OutType = f64>,
+        D: Dataset<InType = f64, InDim = C::Input, OutDim = L::TargetDim, OutType = T>,
     {
-        for epoch in 0..epochs {
+        for epoch in 1..epochs {
             let mut loss = 0.0;
+            self.optimizer.pre_update();
             for (x, y) in dataset.batch_iter(batch_size, shuffle) {
                 let y_pred = self.forward(&x);
 
@@ -74,16 +142,28 @@ where
                 let grad = self.loss.backwards(&y_pred, &y);
                 self.backward(&grad);
 
-                for module in self.modules.iter_mut() {
-                    if let Some(trainable) = module.as_trainable_mut() {
-                        self.optimizer.update(trainable);
-                    }
-                }
+                self.chain.update(&mut self.optimizer);
             }
 
-            if epoch % print_every == 0 {
-                println!("Epoch: {}, Loss: {}", epoch, loss);
+            if epoch % print_every == 0 || epoch == 1 {
+                println!(
+                    "Epoch: {}/{}: AVG Loss: {}",
+                    epoch,
+                    epochs,
+                    loss / epochs as f64
+                );
             }
         }
+    }
+
+    pub fn evaluate<D>(&mut self, dataset: &D) -> (Array<D::InType, C::Output>, f64)
+    where
+        D: Dataset<InType = f64, InDim = C::Input, OutDim = L::TargetDim, OutType = T>,
+    {
+        // TODO: Set layers to evaluation mode
+
+        let pred = self.forward(&dataset.inputs().to_owned());
+        let test_loss = self.loss.calculate(&pred, &dataset.outputs().to_owned());
+        (pred, test_loss)
     }
 }
