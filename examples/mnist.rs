@@ -1,7 +1,6 @@
 use byteorder::{BigEndian, ReadBytesExt};
 use ndarray::{s, Array1, Array2, Axis, Ix1, Ix2};
 use neural_network::data::{Dataset, NNDataset};
-use neural_network::metric::Metric;
 use neural_network::model::LayerChain;
 use neural_network::module::{activations, layers};
 use neural_network::sequential;

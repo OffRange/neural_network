@@ -1,6 +1,6 @@
 use crate::loss::Loss;
 use crate::utils::ToOneHot;
-use ndarray::{Array, Array2, Dimension, Ix, Ix1, Ix2};
+use ndarray::{Array, Array2, Ix, Ix1, Ix2};
 
 pub struct CategoricalCrossEntropy {
     clamp_epsilon: f64,
