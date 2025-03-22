@@ -1,7 +1,7 @@
 use crate::data::Dataset;
 use crate::loss::Loss;
 use crate::optimizers::Optimizer;
-use crate::Module;
+use crate::{Module, State};
 use ndarray::{Array, Dimension};
 use std::marker::PhantomData;
 
@@ -23,6 +23,8 @@ pub trait LayerChain<O> {
     {
         CompiledModel::new(self, loss, optimizer)
     }
+
+    fn update_state(&mut self, state: State);
 }
 
 impl<M, O> LayerChain<O> for M
@@ -45,6 +47,10 @@ where
         if let Some(trainable) = self.as_trainable_mut() {
             optimizer.update(trainable)
         }
+    }
+
+    fn update_state(&mut self, state: State) {
+        self.update_state(state);
     }
 }
 
@@ -73,6 +79,12 @@ where
         let (head, tail) = self;
         head.update(optimizer);
         tail.update(optimizer);
+    }
+
+    fn update_state(&mut self, state: State) {
+        let (head, tail) = self;
+        head.update_state(state.clone());
+        tail.update_state(state);
     }
 }
 
@@ -131,6 +143,8 @@ where
     ) where
         D: Dataset<InType = f64, InDim = C::Input, OutDim = L::TargetDim, OutType = T>,
     {
+        self.chain.update_state(State::Learning);
+
         for epoch in 1..epochs {
             let mut loss = 0.0;
             self.optimizer.pre_update();
@@ -160,7 +174,7 @@ where
     where
         D: Dataset<InType = f64, InDim = C::Input, OutDim = L::TargetDim, OutType = T>,
     {
-        // TODO: Set layers to evaluation mode
+        self.chain.update_state(State::Evaluating);
 
         let pred = self.forward(&dataset.inputs().to_owned());
         let test_loss = self.loss.calculate(&pred, &dataset.outputs().to_owned());
