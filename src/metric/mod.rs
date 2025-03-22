@@ -1,16 +1,20 @@
 mod multi_class_accuracy;
 mod regression_accuracy;
 
-use ndarray::{Array, Array2, ArrayView};
+use ndarray::{Array, ArrayView, Dimension};
 
 pub use multi_class_accuracy::*;
 pub use regression_accuracy::*;
 
-pub trait Metric<A, D>
-where
-    D: ndarray::Dimension,
-{
-    fn evaluate(&self, y_pred: &Array2<f64>, y_true: &Array<A, D>) -> f64;
+pub trait Metric<A> {
+    type PredDim: Dimension;
+    type TargetDim: Dimension;
+
+    fn evaluate(
+        &self,
+        y_pred: &Array<f64, Self::PredDim>,
+        y_true: &Array<A, Self::TargetDim>,
+    ) -> f64;
 }
 
 pub trait Tolerance {
@@ -25,7 +29,7 @@ impl Tolerance for f64 {
 
 pub struct StdTolerance<'a, D>
 where
-    D: ndarray::Dimension,
+    D: Dimension,
 {
     data: ArrayView<'a, f64, D>,
     ddof: f64,
@@ -34,7 +38,7 @@ where
 
 impl<D> Tolerance for StdTolerance<'_, D>
 where
-    D: ndarray::Dimension,
+    D: Dimension,
 {
     fn tolerance(&self) -> f64 {
         self.data.std(self.ddof) / self.epsilon
@@ -43,7 +47,7 @@ where
 
 impl<'a, D> StdTolerance<'a, D>
 where
-    D: ndarray::Dimension,
+    D: Dimension,
 {
     pub fn new(data: ArrayView<'a, f64, D>, ddof: f64, epsilon: f64) -> Self {
         Self {

@@ -1,19 +1,33 @@
 use crate::metric::Metric;
 use crate::utils::Argmax;
-use ndarray::{Array, Array2, Axis, Ix, Ix1, Ix2};
+use ndarray::{Array, Axis, Ix, Ix1, Ix2};
 
 #[derive(Default)]
 pub struct MultiClassAccuracy;
 
-impl Metric<f64, Ix2> for MultiClassAccuracy {
-    fn evaluate(&self, y_pred: &Array2<f64>, y_true: &Array<f64, Ix2>) -> f64 {
+impl Metric<f64> for MultiClassAccuracy {
+    type PredDim = Ix2;
+    type TargetDim = Ix2;
+
+    fn evaluate(
+        &self,
+        y_pred: &Array<f64, Self::PredDim>,
+        y_true: &Array<f64, Self::TargetDim>,
+    ) -> f64 {
         let y_true = y_true.argmax(Axis(1));
         Self::evaluate(self, y_pred, &y_true)
     }
 }
 
-impl Metric<Ix, Ix1> for MultiClassAccuracy {
-    fn evaluate(&self, y_pred: &Array2<f64>, y_true: &Array<Ix, Ix1>) -> f64 {
+impl Metric<Ix> for MultiClassAccuracy {
+    type PredDim = Ix2;
+    type TargetDim = Ix1;
+
+    fn evaluate(
+        &self,
+        y_pred: &Array<f64, Self::PredDim>,
+        y_true: &Array<Ix, Self::TargetDim>,
+    ) -> f64 {
         let y_pred = y_pred.argmax(Axis(1));
         y_pred
             .iter()

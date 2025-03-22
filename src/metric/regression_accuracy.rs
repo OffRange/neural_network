@@ -1,5 +1,5 @@
 use crate::metric::{Metric, Tolerance};
-use ndarray::{Array, Array2, Ix2};
+use ndarray::{Array, Ix2};
 
 pub struct RegressionAccuracy<T>
 where
@@ -23,11 +23,18 @@ impl Default for RegressionAccuracy<f64> {
     }
 }
 
-impl<T> Metric<f64, Ix2> for RegressionAccuracy<T>
+impl<T> Metric<f64> for RegressionAccuracy<T>
 where
     T: Tolerance,
 {
-    fn evaluate(&self, y_pred: &Array2<f64>, y_true: &Array<f64, Ix2>) -> f64 {
+    type PredDim = Ix2;
+    type TargetDim = Ix2;
+
+    fn evaluate(
+        &self,
+        y_pred: &Array<f64, Self::PredDim>,
+        y_true: &Array<f64, Self::TargetDim>,
+    ) -> f64 {
         let diff = y_pred - y_true;
         let diff = diff.mapv(|x| (x.abs() < self.tolerance.tolerance()) as u8 as f64);
 
