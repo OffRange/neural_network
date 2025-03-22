@@ -145,7 +145,7 @@ where
     {
         self.chain.update_state(State::Learning);
 
-        for epoch in 1..epochs {
+        for epoch in 1..=epochs {
             let mut loss = 0.0;
             self.optimizer.pre_update();
             for (x, y) in dataset.batch_iter(batch_size, shuffle) {
