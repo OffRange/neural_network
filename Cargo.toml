@@ -22,3 +22,6 @@ byteorder = "1.5.0"
 [features]
 blas = ["ndarray/blas", "blas-src"]
 blas-accelerate = ["blas", "blas-src/accelerate"]
+
+[profile.dev]
+opt-level = 3
