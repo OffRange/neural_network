@@ -36,11 +36,11 @@ where
     type Output = M::Output;
 
     fn forward(&mut self, input: &Array<f64, Self::Input>) -> Array<f64, Self::Output> {
-        self.forward(input)
+        <M as Module>::forward(self, input)
     }
 
     fn backward(&mut self, grad: &Array<f64, Self::Output>) -> Array<f64, Self::Input> {
-        self.backward(grad)
+        <M as Module>::backward(self, grad)
     }
 
     fn update(&mut self, optimizer: &mut O) {
@@ -50,7 +50,7 @@ where
     }
 
     fn update_state(&mut self, state: State) {
-        self.update_state(state);
+        <M as Module>::update_state(self, state);
     }
 }
 
@@ -83,7 +83,7 @@ where
 
     fn update_state(&mut self, state: State) {
         let (head, tail) = self;
-        head.update_state(state.clone());
+        head.update_state(state);
         tail.update_state(state);
     }
 }
