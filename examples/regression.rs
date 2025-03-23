@@ -1,11 +1,12 @@
-use ndarray::{stack, Array1, Array2, Axis, Ix1};
+use ndarray::{Array1, Array2, Axis, Ix1, stack};
+use neural_network::Module;
 use neural_network::data::{Dataset, NNDataset};
 use neural_network::loss::Loss;
 use neural_network::metric::{Metric, RegressionAccuracy, StdTolerance};
 use neural_network::module::activations;
 use neural_network::module::layers::{Dense, TrainableLayer};
 use neural_network::optimizers::Optimizer;
-use neural_network::Module;
+use neural_network::value::Value;
 use neural_network::{initializer, loss, optimizers, regularizer};
 use plotters::prelude::*;
 use rand::distr::Distribution;
@@ -82,7 +83,7 @@ fn main() {
             loss_val += loss.calculate(&y_pred, &train_y) + regularization_loss;
 
             let acc = RegressionAccuracy::new(StdTolerance::new(train_y.view(), 0., 250.));
-            accuracy_val += acc.evaluate(&y_pred, &train_y);
+            accuracy_val += acc.evaluate(&y_pred, &train_y).value();
 
             // Backward
             let d_values = loss.backwards(&y_pred, &train_y);
