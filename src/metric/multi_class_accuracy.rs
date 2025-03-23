@@ -1,4 +1,4 @@
-use crate::metric::Metric;
+use crate::metric::{Metric, MetricValue};
 use crate::utils::Argmax;
 use ndarray::{Array, Axis, Ix, Ix1, Ix2};
 
@@ -13,9 +13,13 @@ impl Metric<f64> for MultiClassAccuracy {
         &self,
         y_pred: &Array<f64, Self::PredDim>,
         y_true: &Array<f64, Self::TargetDim>,
-    ) -> f64 {
+    ) -> MetricValue {
         let y_true = y_true.argmax(Axis(1));
         Self::evaluate(self, y_pred, &y_true)
+    }
+
+    fn name(&self) -> &'static str {
+        "MultiClassAccuracy"
     }
 }
 
@@ -27,14 +31,16 @@ impl Metric<Ix> for MultiClassAccuracy {
         &self,
         y_pred: &Array<f64, Self::PredDim>,
         y_true: &Array<Ix, Self::TargetDim>,
-    ) -> f64 {
+    ) -> MetricValue {
         let y_pred = y_pred.argmax(Axis(1));
-        y_pred
+        let value = y_pred
             .iter()
             .zip(y_true.iter())
             .filter(|(pred, true_)| pred == true_)
             .count() as f64
-            / y_pred.len() as f64
+            / y_pred.len() as f64;
+
+        MetricValue::new(<Self as Metric<Ix>>::name(self), value)
     }
 }
 
@@ -42,6 +48,7 @@ impl Metric<Ix> for MultiClassAccuracy {
 mod tests {
     use super::*;
     use crate::assert_eq_approx;
+    use crate::value::Value;
     use ndarray::array;
 
     #[test]
@@ -52,8 +59,8 @@ mod tests {
 
         let y_true_scalar = y_true.argmax(Axis(1)); // Equivalent to [0, 1, 1]
 
-        let result_one_hot_enc = MultiClassAccuracy.evaluate(&y_pred, &y_true);
-        let result = MultiClassAccuracy.evaluate(&y_pred, &y_true_scalar);
+        let result_one_hot_enc = MultiClassAccuracy.evaluate(&y_pred, &y_true).value();
+        let result = MultiClassAccuracy.evaluate(&y_pred, &y_true_scalar).value();
 
         assert_eq_approx!(result, 2. / 3.);
         assert_eq_approx!(result_one_hot_enc, 2. / 3.);

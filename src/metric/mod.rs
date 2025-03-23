@@ -1,10 +1,32 @@
 mod multi_class_accuracy;
 mod regression_accuracy;
 
-use ndarray::{Array, ArrayView, Dimension};
-
+use crate::value::Value;
 pub use multi_class_accuracy::*;
+use ndarray::{Array, ArrayView, Dimension};
 pub use regression_accuracy::*;
+
+#[derive(Debug, Default, Clone)]
+pub struct MetricValue {
+    name: &'static str,
+    value: f64,
+}
+
+impl MetricValue {
+    pub fn new(name: &'static str, value: f64) -> Self {
+        Self { name, value }
+    }
+}
+
+impl Value for MetricValue {
+    fn value(&self) -> f64 {
+        self.value
+    }
+
+    fn name(&self) -> &'static str {
+        self.name
+    }
+}
 
 pub trait Metric<A> {
     type PredDim: Dimension;
@@ -14,7 +36,11 @@ pub trait Metric<A> {
         &self,
         y_pred: &Array<f64, Self::PredDim>,
         y_true: &Array<A, Self::TargetDim>,
-    ) -> f64;
+    ) -> MetricValue;
+
+    fn name(&self) -> &'static str {
+        std::any::type_name::<Self>()
+    }
 }
 
 pub trait Tolerance {

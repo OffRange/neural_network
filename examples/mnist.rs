@@ -1,6 +1,7 @@
 use byteorder::{BigEndian, ReadBytesExt};
-use ndarray::{s, Array1, Array2, Axis, Ix1, Ix2};
+use ndarray::{Array1, Array2, Axis, Ix1, Ix2, s};
 use neural_network::data::{Dataset, NNDataset};
+use neural_network::metric::MultiClassAccuracy;
 use neural_network::model::LayerChain;
 use neural_network::module::{activations, layers};
 use neural_network::sequential;
@@ -51,7 +52,14 @@ fn with_model() {
     let optim = optimizers::Adam::new(0.0005, 1e-5, 1e-7, 0.9, 0.999);
     let mut model = seq.compile(loss, optim);
 
-    model.fit(&mnist.train_dataset, 300, 64, true, 100);
+    model.fit(
+        &mnist.train_dataset,
+        300,
+        64,
+        true,
+        100,
+        &[Box::new(MultiClassAccuracy)],
+    );
     let (pred, test_loss) = model.evaluate(&mnist.test_dataset);
 
     println!("Test Loss: {:?}", test_loss);

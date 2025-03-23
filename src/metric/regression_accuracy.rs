@@ -1,4 +1,4 @@
-use crate::metric::{Metric, Tolerance};
+use crate::metric::{Metric, MetricValue, Tolerance};
 use ndarray::{Array, Ix2};
 
 pub struct RegressionAccuracy<T>
@@ -34,11 +34,11 @@ where
         &self,
         y_pred: &Array<f64, Self::PredDim>,
         y_true: &Array<f64, Self::TargetDim>,
-    ) -> f64 {
+    ) -> MetricValue {
         let diff = y_pred - y_true;
         let diff = diff.mapv(|x| (x.abs() < self.tolerance.tolerance()) as u8 as f64);
 
-        diff.mean().unwrap()
+        MetricValue::new(self.name(), diff.mean().unwrap())
     }
 }
 
@@ -46,6 +46,7 @@ where
 mod tests {
     use super::*;
     use crate::assert_eq_approx;
+    use crate::value::Value;
     use ndarray::array;
 
     #[test]
@@ -58,7 +59,9 @@ mod tests {
             [0.018, 0.9872, 0.08]
         ];
 
-        let result = RegressionAccuracy::default().evaluate(&y_pred, &y_true);
+        let result = RegressionAccuracy::default()
+            .evaluate(&y_pred, &y_true)
+            .value();
 
         assert_eq_approx!(result, 1. / 3.);
     }

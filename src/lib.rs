@@ -12,6 +12,7 @@ pub mod optimizers;
 pub mod regularizer;
 pub mod state;
 pub mod utils;
+pub mod value;
 
 pub use module::Module;
 pub use state::State;
