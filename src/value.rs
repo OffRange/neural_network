@@ -1,6 +1,7 @@
 use ndarray::{ArrayBase, Data, Dimension};
+use std::fmt::Display;
 
-pub trait Value {
+pub trait Value: Display {
     fn value(&self) -> f64;
     fn name(&self) -> &'static str;
 }
@@ -24,12 +25,19 @@ where
 mod tests {
     use crate::value::{Value, ValueMean};
     use ndarray::array;
+    use std::fmt::{Display, Formatter};
 
     struct TestValue(f64);
 
     impl TestValue {
         fn new(value: f64) -> Self {
             Self(value)
+        }
+    }
+
+    impl Display for TestValue {
+        fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+            unreachable!()
         }
     }
 

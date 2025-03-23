@@ -5,6 +5,7 @@ use crate::value::Value;
 pub use multi_class_accuracy::*;
 use ndarray::{Array, ArrayView, Dimension};
 pub use regression_accuracy::*;
+use std::fmt::Display;
 
 #[derive(Debug, Default, Clone)]
 pub struct MetricValue {
@@ -15,6 +16,12 @@ pub struct MetricValue {
 impl MetricValue {
     pub fn new(name: &'static str, value: f64) -> Self {
         Self { name, value }
+    }
+}
+
+impl Display for MetricValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}: {:.8}", self.name, self.value)
     }
 }
 
