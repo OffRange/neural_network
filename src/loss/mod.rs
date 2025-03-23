@@ -28,7 +28,7 @@ pub trait Loss<T> {
     ) -> Array<f64, <Self as Loss<T>>::PredDim>;
 
     fn name(&self) -> &'static str {
-        std::any::type_name::<Self>()
+        std::any::type_name::<Self>().rsplit(':').next().unwrap()
     }
 }
 

@@ -17,10 +17,6 @@ impl Metric<f64> for MultiClassAccuracy {
         let y_true = y_true.argmax(Axis(1));
         Self::evaluate(self, y_pred, &y_true)
     }
-
-    fn name(&self) -> &'static str {
-        "MultiClassAccuracy"
-    }
 }
 
 impl Metric<Ix> for MultiClassAccuracy {

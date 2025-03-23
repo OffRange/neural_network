@@ -46,7 +46,7 @@ pub trait Metric<A> {
     ) -> MetricValue;
 
     fn name(&self) -> &'static str {
-        std::any::type_name::<Self>()
+        std::any::type_name::<Self>().rsplit(':').next().unwrap()
     }
 }
 
