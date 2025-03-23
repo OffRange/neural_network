@@ -18,16 +18,8 @@ jobs:
       - uses: ./.github/actions/install-deps
       - name: Generate Lockfile
         run: cargo generate-lockfile
-      - name: Cache Cargo registry
-        uses: actions/cache@v4
-        with:
-          path: ~/.cargo/registry
-          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
-      - name: Cache Cargo build
-        uses: actions/cache@v4
-        with:
-          path: target
-          key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
+      - name: Handle Cache
+        uses: ./.github/actions/use-cache
 
       - name: Build
         run: cargo build --verbose --all-targets
@@ -38,6 +30,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/install-deps
+      - name: Handle Cache
+        uses: ./.github/actions/use-cache
       - name: Run Tests
         run: cargo test --verbose --all-targets
 
@@ -48,6 +42,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/install-deps
+      - name: Handle Cache
+        uses: ./.github/actions/use-cache
       - name: Check clippy
         run: cargo clippy --all-targets -- -D warnings
 
@@ -57,6 +53,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+      - name: Handle Cache
+        uses: ./.github/actions/use-cache
       - name: Build documentation
         run: cargo doc --no-deps
       - name: Create redirect html
