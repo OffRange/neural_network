@@ -1,0 +1,9 @@
+name: Install Dependencies
+description: Installs dependencies for the project
+
+runs:
+  using: composite
+  steps:
+    - name: Install fontconfig dependency for plotters
+      run: sudo apt install -y libfontconfig1-dev
+      shell: bash

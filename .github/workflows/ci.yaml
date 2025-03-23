@@ -10,13 +10,12 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  ci:
+  build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Install fontconfig dependency for plotters
-        run: sudo apt-get install -y libfontconfig1-dev
       - uses: actions/checkout@v4
+      - uses: ./.github/actions/install-deps
       - name: Generate Lockfile
         run: cargo generate-lockfile
       - name: Cache Cargo registry
@@ -29,9 +28,72 @@ jobs:
         with:
           path: target
           key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
+
       - name: Build
         run: cargo build --verbose --all-targets
+
+  test:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/install-deps
       - name: Run Tests
         run: cargo test --verbose --all-targets
+
+  lint:
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/install-deps
       - name: Check clippy
         run: cargo clippy --all-targets -- -D warnings
+
+  doc:
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build documentation
+        run: cargo doc --no-deps
+      - name: Create redirect html
+        run: |
+          cat <<EOF > target/doc/index.html
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <meta http-equiv="refresh" content="0; url=neural_network/" />
+              <title>Redirecting...</title>
+            </head>
+            <body>
+              <p>If you are not redirected automatically, follow the <a href="neural_network/">link to documentation</a>.</p>
+            </body>
+          </html>
+          EOF
+
+      - name: Upload doc artifacts
+        id: deployment
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: target/doc
+
+  deploy-doc:
+    if: ${{ github.ref == 'refs/heads/main' }}
+    needs: doc
+
+    permissions:
+      pages: write
+      id-token: write
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy-doc.outputs.url }}
+
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy docs to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
