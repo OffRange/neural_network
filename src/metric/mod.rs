@@ -1,7 +1,9 @@
+mod model_metrics;
 mod multi_class_accuracy;
 mod regression_accuracy;
 
 use crate::value::Value;
+pub use model_metrics::*;
 pub use multi_class_accuracy::*;
 use ndarray::{Array, ArrayView, Dimension};
 pub use regression_accuracy::*;

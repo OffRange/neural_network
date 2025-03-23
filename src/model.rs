@@ -1,5 +1,6 @@
 use crate::data::Dataset;
 use crate::loss::Loss;
+use crate::metric::{Metric, ModelMetrics};
 use crate::optimizers::Optimizer;
 use crate::{Module, State};
 use ndarray::{Array, Dimension};
@@ -109,6 +110,9 @@ where
     optimizer: O,
 }
 
+type AnyMetric<T, L> =
+    Box<dyn Metric<T, PredDim = <L as Loss<T>>::PredDim, TargetDim = <L as Loss<T>>::TargetDim>>;
+
 impl<C, T, L, O> CompiledModel<C, T, L, O>
 where
     C: LayerChain<O>,
@@ -140,32 +144,39 @@ where
         batch_size: usize,
         shuffle: bool,
         print_every: usize,
+        metrics: &[AnyMetric<T, L>],
     ) where
         D: Dataset<InType = f64, InDim = C::Input, OutDim = L::TargetDim, OutType = T>,
     {
         self.chain.update_state(State::Learning);
 
-        for epoch in 1..=epochs {
-            let mut loss = 0.0;
-            self.optimizer.pre_update();
-            for (x, y) in dataset.batch_iter(batch_size, shuffle) {
-                let y_pred = self.forward(&x);
+        let mut model_metrics = ModelMetrics::new(
+            epochs,
+            dataset.len().div_ceil(batch_size),
+            metrics.len() + 1,
+        );
 
-                loss += self.loss.calculate(&y_pred, &y);
+        for epoch in 1..=epochs {
+            self.optimizer.pre_update();
+            let batch_metrics_data = dataset.batch_iter(batch_size, shuffle).map(|(x, y)| {
+                let y_pred = self.forward(&x);
 
                 let grad = self.loss.backwards(&y_pred, &y);
                 self.backward(&grad);
 
                 self.chain.update(&mut self.optimizer);
-            }
 
-            if epoch % print_every == 0 || epoch == 1 {
-                println!(
-                    "Epoch: {}/{}: AVG Loss: {}",
-                    epoch,
-                    epochs,
-                    loss / epochs as f64
-                );
+                let loss = self.loss.evaluate(&y_pred, &y);
+                let metric_values = metrics
+                    .iter()
+                    .map(move |metric| metric.evaluate(&y_pred, &y));
+
+                (loss, metric_values)
+            });
+
+            model_metrics.update(batch_metrics_data);
+            if epoch == 1 || epoch % print_every == 0 {
+                println!("{}", model_metrics.displayable(epoch));
             }
         }
     }
