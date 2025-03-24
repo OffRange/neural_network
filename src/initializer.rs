@@ -1,10 +1,44 @@
+/*! Provides implementation for weight and bias initializers. */
 use ndarray_rand::rand_distr::{Distribution, Normal, Uniform};
 
+
+/// The `Initializer` trait defines an interface for creating weight initializers
+/// using a specific probability distribution. It is commonly used in neural network
+/// layers to generate initial weight values based on the number of input and output units.
 pub trait Initializer {
+    /// Creates a new initializer instance.
+    ///
+    /// # Arguments
+    ///
+    /// * `fan_in` - The number of input units in the weight tensor.
+    /// * `fan_out` - The number of output units in the weight tensor.
+    ///
+    /// # Returns
+    ///
+    /// A new instance of the initializer.
     fn new(fan_in: usize, fan_out: usize) -> Self;
+
+    /// Returns a random distribution used to sample initial weight values.
+    ///
+    /// The returned distribution implements [`Distribution<f64>`],
+    /// allowing for sampling of `f64` weight values.
     fn dist(&self) -> impl Distribution<f64>;
 }
 
+/// The `Xavier` struct implements the Xavier (aka Glorot) initialization method.
+///
+/// Xavier initialization uses a uniform distribution with bounds calculated as:
+/// `bound = sqrt(6 / (fan_in + fan_out))`.
+/// This approach helps keep the variance of activations roughly the same across layers.
+///
+/// # Usage
+///
+/// ```rust
+/// use neural_network::initializer;
+/// use neural_network::module::layers::Dense;
+///
+/// let dense = Dense::new::<initializer::Xavier>(10, 64);
+/// ```
 pub struct Xavier {
     uniform: Uniform<f64>,
 }
@@ -22,6 +56,20 @@ impl Initializer for Xavier {
     }
 }
 
+/// The `He` struct implements the He (aka Kaiming) initialization method.
+///
+/// He initialization uses a normal distribution with a standard deviation computed as:
+/// `std_dev = sqrt(2 / fan_in)`.
+/// This method is particularly suited for layers that use rectified linear units (ReLU).
+///
+/// # Usage
+///
+/// ```rust
+/// use neural_network::initializer;
+/// use neural_network::module::layers::Dense;
+///
+/// let dense = Dense::new::<initializer::He>(10, 64);
+/// ```
 pub struct He {
     normal: Normal<f64>,
 }

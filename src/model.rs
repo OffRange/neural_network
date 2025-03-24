@@ -17,7 +17,7 @@ pub trait LayerChain<O> {
 
     fn compile<T, L>(self, loss: L, optimizer: O) -> CompiledModel<Self, T, L, O>
     where
-        L: Loss<T, PredDim = Self::Output>,
+        L: Loss<T, PredDim=Self::Output>,
         O: Optimizer,
         T: Clone,
         Self: Sized,
@@ -58,7 +58,7 @@ where
 impl<Head, Tail, O> LayerChain<O> for (Head, Tail)
 where
     Head: LayerChain<O>,
-    Tail: LayerChain<O, Input = Head::Output>,
+    Tail: LayerChain<O, Input=Head::Output>,
     O: Optimizer,
 {
     type Input = Head::Input;
@@ -89,6 +89,39 @@ where
     }
 }
 
+/// Constructs a sequential model by chaining multiple modules together.
+///
+/// The `sequential!` macro takes one or more module expressions and combines them into a nested tuple structure representing
+/// a sequential neural network. When a single module is provided, it is returned directly. When multiple modules are provided,
+/// the macro recursively nests them as tuples.
+///
+/// This macro supports an optional trailing comma.
+///
+/// # Examples
+///
+/// Basic usage:
+///
+/// ```rust
+/// // Creating a simple sequential model with two layers:
+/// use ndarray::Array;
+/// use neural_network::{initializer, loss, optimizers, sequential};
+/// use neural_network::model::LayerChain;
+/// use neural_network::module::activations::ReLU;
+/// use neural_network::module::layers::Dense;
+///
+/// let mut model = sequential![
+///     Dense::new::<initializer::He>(784, 1024),
+///     ReLU::default(),
+/// ];
+///
+/// let loss = loss::SparseCategoricalCrossEntropy::new(1e-7);
+/// let optimizer = optimizers::Adam::default();
+/// let mut model = model.compile(loss, optimizer);
+/// ```
+///
+/// # See Also
+///
+/// For more details on the modules and layers used in this example, please refer to the corresponding documentation.
 #[macro_export]
 macro_rules! sequential {
     ($module:expr $(,)?) => {
@@ -111,12 +144,12 @@ where
 }
 
 type AnyMetric<T, L> =
-    Box<dyn Metric<T, PredDim = <L as Loss<T>>::PredDim, TargetDim = <L as Loss<T>>::TargetDim>>;
+Box<dyn Metric<T, PredDim=<L as Loss<T>>::PredDim, TargetDim=<L as Loss<T>>::TargetDim>>;
 
 impl<C, T, L, O> CompiledModel<C, T, L, O>
 where
     C: LayerChain<O>,
-    L: Loss<T, PredDim = C::Output>,
+    L: Loss<T, PredDim=C::Output>,
     T: Clone,
     O: Optimizer,
 {
@@ -146,7 +179,7 @@ where
         print_every: usize,
         metrics: &[AnyMetric<T, L>],
     ) where
-        D: Dataset<InType = f64, InDim = C::Input, OutDim = L::TargetDim, OutType = T>,
+        D: Dataset<InType=f64, InDim=C::Input, OutDim=L::TargetDim, OutType=T>,
     {
         self.chain.update_state(State::Learning);
 
@@ -183,7 +216,7 @@ where
 
     pub fn evaluate<D>(&mut self, dataset: &D) -> (Array<D::InType, C::Output>, f64)
     where
-        D: Dataset<InType = f64, InDim = C::Input, OutDim = L::TargetDim, OutType = T>,
+        D: Dataset<InType=f64, InDim=C::Input, OutDim=L::TargetDim, OutType=T>,
     {
         self.chain.update_state(State::Evaluating);
 

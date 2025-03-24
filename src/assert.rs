@@ -1,3 +1,4 @@
+#[doc(hidden)]
 #[macro_export]
 macro_rules! assert_eq_approx {
     ($left:expr, $right:expr) => {
@@ -9,6 +10,7 @@ macro_rules! assert_eq_approx {
     };
 }
 
+#[doc(hidden)]
 #[macro_export]
 macro_rules! assert_arr_eq_approx {
     ($left:expr, $right:expr) => {

@@ -1,6 +1,25 @@
-use ndarray::{Array, ArrayView, Axis, Dimension, RemoveAxis};
+/*!
+Module for handling datasets.
+
+This module provides a `Dataset` trait that can be implemented for any type that represents a
+dataset. The `NNDataset` struct is provided as a concrete implementation of the `Dataset` trait
+for neural network data.
+*/
+
+use ndarray::{Array, ArrayView, Axis, Dimension, RemoveAxis, StrideShape};
 use rand::prelude::SliceRandom;
 
+/// The `Dataset` trait represents a collection of input-output pairs.
+///
+/// It provides methods to access the underlying input and output data as immutable
+/// views, and it also provides a method to create an iterator over batches of samples.
+///
+/// # Associated Types
+///
+/// - `InType`: The element type of the input data.
+/// - `OutType`: The element type of the output data.
+/// - `InDim`: The dimensionality type for the input data (must implement `Dimension` and `RemoveAxis`).
+/// - `OutDim`: The dimensionality type for the output data (must implement `Dimension` and `RemoveAxis`).
 pub trait Dataset {
     type InType: Clone;
     type OutType: Clone;
@@ -8,15 +27,93 @@ pub trait Dataset {
     type InDim: Dimension + RemoveAxis;
     type OutDim: Dimension + RemoveAxis;
 
+    /// Returns the number of samples in the dataset.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use ndarray::array;
+    /// use neural_network::data::{Dataset, NNDataset};
+    ///
+    /// let dataset = NNDataset::new(array![[1., 2.], [3., 4.]], array![[0.], [1.]]);
+    ///
+    /// assert_eq!(2, dataset.len());
+    /// ```
     fn len(&self) -> usize;
 
+    /// Checks if the dataset is empty. Returns `true` if the dataset is empty, `false` otherwise.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use ndarray::array;
+    /// use neural_network::data::{Dataset, NNDataset};
+    ///
+    /// let dataset = NNDataset::new(array![[1., 2.], [3., 4.]], array![[0.], [1.]]);
+    ///
+    /// assert!(!dataset.is_empty());
+    /// ```
     fn is_empty(&self) -> bool {
         self.len() == 0
     }
 
+    /// Provides a view of the input data.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use ndarray::array;
+    /// use neural_network::data::{Dataset, NNDataset};
+    ///
+    /// let inputs = array![[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]];
+    /// let outputs = array![[0.0], [1.0], [0.0]];
+    /// let dataset = NNDataset::new(inputs.clone(), outputs);
+    ///
+    /// assert_eq!(dataset.inputs(), inputs.view());
+    /// ```
     fn inputs(&self) -> ArrayView<Self::InType, Self::InDim>;
+
+    /// Provides a view of the output data.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use ndarray::array;
+    /// use neural_network::data::{Dataset, NNDataset};
+    ///
+    /// let inputs = array![[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]];
+    /// let outputs = array![[0.0], [1.0], [0.0]];
+    /// let dataset = NNDataset::new(inputs, outputs.clone());
+    ///
+    /// assert_eq!(dataset.outputs(), outputs.view());
+    /// ```
     fn outputs(&self) -> ArrayView<Self::OutType, Self::OutDim>;
 
+    /// Creates a [batch iterator](BatchIterator) over the dataset.
+    ///
+    /// # Arguments
+    ///
+    /// * `batch_size` - The number of samples in each batch
+    /// * `shuffle` - Whether to randomly shuffle the data before creating batches
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use ndarray::array;
+    /// use neural_network::data::{Dataset, NNDataset};
+    ///
+    /// let inputs = array![[1.0, 2.0], [3.0, 4.0], [5.0, 6.0], [7.0, 8.0]];
+    /// let outputs = array![[0.0], [1.0], [0.0], [1.0]];
+    /// let dataset = NNDataset::new(inputs, outputs);
+    ///
+    /// // Iterate with a batch size of 2, without shuffling
+    /// let mut batch_count = 0;
+    /// for (batch_inputs, batch_outputs) in dataset.batch_iter(2, false) {
+    ///     assert_eq!(batch_inputs.shape()[0], 2);
+    ///     batch_count += 1;
+    /// }
+    /// assert_eq!(batch_count, 2);
+    /// ```
     fn batch_iter(&self, batch_size: usize, shuffle: bool) -> BatchIterator<Self> {
         let n_samples = self.len();
         let mut indices: Vec<usize> = (0..n_samples).collect();
@@ -33,6 +130,39 @@ pub trait Dataset {
     }
 }
 
+/// A concrete implementation of a neural network dataset.
+///
+/// This struct stores input and output data as multidimensional arrays
+/// and implements the [Dataset] trait.
+///
+/// # Type Parameters
+///
+/// - `I`: Input data element type
+/// - `O`: Output data element type
+/// - `ID`: Input data dimensionality
+/// - `OD`: Output data dimensionality
+///
+/// # Example
+///
+/// ```rust
+/// use ndarray::array;
+/// use neural_network::data::NNDataset;
+///
+/// // Create a dataset for a simple regression problem
+/// let inputs = array![[1.0], [2.0], [3.0], [4.0]];
+/// let outputs = array![[2.0], [4.0], [6.0], [8.0]];
+/// let dataset = NNDataset::new(inputs, outputs);
+///
+/// // Create a dataset from vectors
+/// let inputs_vec = vec![1.0, 2.0, 3.0, 4.0];
+/// let outputs_vec = vec![2.0, 4.0, 6.0, 8.0];
+/// let dataset_from_vec = NNDataset::new_from_vec(
+///     (4, 1),
+///     (4, 1),
+///     inputs_vec,
+///     outputs_vec
+/// );
+/// ```
 pub struct NNDataset<I, O, ID, OD> {
     inputs: Array<I, ID>,
     outputs: Array<O, OD>,
@@ -50,13 +180,23 @@ where
     /// * `inputs` - An `Array` containing the input data.
     /// * `outputs` - An `Array` containing the output data.
     ///
-    /// # Returns
-    ///
-    /// * An `NNDataset` instance.
-    ///
     /// # Panics
     ///
     /// Panics if the number of samples in `inputs` and `outputs` do not match.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use ndarray::array;
+    /// use neural_network::data::{Dataset, NNDataset};
+    ///
+    /// let inputs = array![[1.0, 2.0], [3.0, 4.0]];
+    /// let outputs = array![[0.0], [1.0]];
+    /// let dataset = NNDataset::new(inputs.clone(), outputs.clone());
+    ///
+    /// assert_eq!(inputs, dataset.inputs());
+    /// assert_eq!(outputs, dataset.outputs());
+    /// ```
     pub fn new(inputs: Array<I, ID>, outputs: Array<O, OD>) -> Self {
         assert_eq!(
             inputs.len_of(Axis(0)),
@@ -66,12 +206,47 @@ where
         Self { inputs, outputs }
     }
 
-    pub fn new_from_vec(
-        input_shape: ID,
-        output_shape: OD,
+    /// Create a new dataset from vectors with specified shapes.
+    ///
+    /// # Arguments
+    ///
+    /// * `input_shape` - The shape of the input data
+    /// * `output_shape` - The shape of the output data
+    /// * `inputs` - A vector of input data elements
+    /// * `outputs` - A vector of output data elements
+    ///
+    /// # Panics
+    ///
+    /// Panics if the vectors cannot be shaped into the specified dimensions.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use ndarray::array;
+    /// use neural_network::data::{Dataset, NNDataset};
+    ///
+    /// let inputs_vec = vec![1.0, 2.0, 3.0, 4.0];
+    /// let outputs_vec = vec![0.0, 1.0, 0.0, 1.0];
+    ///
+    /// let dataset = NNDataset::new_from_vec(
+    ///     (4, 1),  // input shape
+    ///     (4, 1),  // output shape
+    ///     inputs_vec,
+    ///     outputs_vec
+    /// );
+    ///
+    /// assert_eq!(array![[1.0], [2.0], [3.0], [4.0]].view(), dataset.inputs());
+    /// ```
+    pub fn new_from_vec<InputSh, OutputSh>(
+        input_shape: InputSh,
+        output_shape: OutputSh,
         inputs: Vec<I>,
         outputs: Vec<O>,
-    ) -> Self {
+    ) -> Self
+    where
+        InputSh: Into<StrideShape<ID>>,
+        OutputSh: Into<StrideShape<OD>>,
+    {
         let inputs = Array::from_shape_vec(input_shape, inputs).unwrap();
         let outputs = Array::from_shape_vec(output_shape, outputs).unwrap();
         Self::new(inputs, outputs)
@@ -103,6 +278,40 @@ where
     }
 }
 
+/// An iterator that generates batches from a dataset.
+///
+/// Supports configurable batch sizes and optional data shuffling.
+///
+/// # Type Parameters
+///
+/// - `D`: The type of dataset being iterated over
+///
+/// # Example
+///
+/// ```rust
+/// use ndarray::{array, aview2};
+/// use neural_network::data::{Dataset, NNDataset};
+///
+/// let inputs = array![[1.0, 2.0], [3.0, 4.0], [5.0, 6.0], [7.0, 8.0]];
+/// let outputs = array![[0.0], [1.0], [2.0], [3.0]];
+/// let dataset = NNDataset::new(inputs, outputs);
+///
+/// // Iterate with a batch size of 2, without shuffling
+/// for (batch_inputs, batch_outputs) in dataset.batch_iter(2, false) {
+///     println!("Batch inputs shape: {:?}", batch_inputs.shape());
+///     println!("Batch outputs shape: {:?}", batch_outputs.shape());
+/// }
+///
+/// let mut batch_iter = dataset.batch_iter(2, false);
+/// assert_eq!(Some((array![[1.0, 2.0], [3.0, 4.0]], array![[0.0], [1.0]])), batch_iter.next());
+/// assert_eq!(Some((array![[5.0, 6.0], [7.0, 8.0]], array![[2.0], [3.0]])), batch_iter.next());
+///
+/// // Iterate with shuffling
+/// for (batch_inputs, batch_outputs) in dataset.batch_iter(3, true) {
+///     // Batches will be in random order
+///     println!("Shuffled batch inputs shape: {:?}", batch_inputs.shape());
+/// }
+/// ```
 pub struct BatchIterator<'a, D>
 where
     D: Dataset + ?Sized,
@@ -139,7 +348,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::{Dataset, NNDataset};
-    use ndarray::{Axis, array};
+    use ndarray::{array, Axis};
 
     #[test]
     #[should_panic]

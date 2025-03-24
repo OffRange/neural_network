@@ -100,12 +100,13 @@ macro_rules! __optimizer_builder {
     };
 }
 
-/// Generates a builder pattern for creating optimizer instances.
+/// Generates a struct definition for optimizers with optional default field values and a builder
+/// pattern for creating optimizer instances.
 ///
 /// This macro automatically creates a builder struct with configurable hyper-parameters
 /// for an optimizer type. It allows users to conveniently set options with default values,
 /// while also supporting an optional internal block for managing non-exposed, derived, or
-/// state-related fields. **Note:** This macro does not implement the optimizer trait for the
+/// state-related fields. **Note:** This macro does not implement the [optimizer](Optimizer) trait for the
 /// target structure.
 ///
 /// # Example
@@ -158,7 +159,7 @@ macro_rules! optimizer_builder {
 mod test {
     use super::*;
     use crate::initializer;
-    use crate::module::{Module, layers::Dense};
+    use crate::module::{layers::Dense, Module};
     use ndarray::array;
 
     pub(super) fn prepared_layer() -> Dense {

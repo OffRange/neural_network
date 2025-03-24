@@ -28,6 +28,41 @@ where
     fn gradient(&self, parameters: &Array<f64, D>) -> Array<f64, D>;
 }
 
+/// Generates a struct definition for regularizers with optional default field values.
+///
+/// This macro automatically creates a regularizer struct with the `Debug` trait derived. It
+/// supports two forms: one for a simple struct definition without default field values, and one
+/// that implements the `Default` trait when any field is provided with a default value (fields
+/// without an explicit default are initialized using `Default::default()`).  
+/// **Note:** This macro does not implement the [Regularizer] trait for the generated struct.
+///
+/// # Example
+///
+/// Basic usage without default values:
+///
+/// ```rust
+/// use neural_network::reg_structure;
+///
+/// reg_structure! {
+///     /// A simple regularizer without default field initialization.
+///     pub struct MyRegularizer {
+///         weight: f32
+///     }
+/// }
+/// ```
+///
+/// Usage with default field initialization:
+///
+/// ```rust
+/// use neural_network::reg_structure;
+///
+/// reg_structure! {
+///     /// A simple regularizer with default field initialization.
+///     pub struct MyRegularizer {
+///         weight: f32 = 0.1
+///     }
+/// }
+/// ```
 #[macro_export]
 macro_rules! reg_structure {
     ($(#[$meta:meta])* $vis:vis struct $reg_name:ident { $($fields:ident: $ty:ty)* }) => {
@@ -157,10 +192,10 @@ where
     fn compute(&self, parameters: &Array<f64, D>) -> f64 {
         self.lambda
             * parameters
-                .powi(2)
-                .mean_axis(Axis(0)) // Axis 0 is the batch axis (in a 2D array --> rows)
-                .unwrap()
-                .sum()
+            .powi(2)
+            .mean_axis(Axis(0)) // Axis 0 is the batch axis (in a 2D array --> rows)
+            .unwrap()
+            .sum()
     }
 
     fn gradient(&self, parameters: &Array<f64, D>) -> Array<f64, D> {
@@ -175,8 +210,8 @@ mod tests {
     use crate::assert_arr_eq_approx;
     use crate::initializer::test::ConstantInitializer;
     use crate::module::{
-        Module,
         layers::{Dense, TrainableLayer},
+        Module,
     };
     use ndarray::{Array1, Array2};
 
@@ -198,7 +233,7 @@ mod tests {
             (3, 2),
             vec![1. / 15., 2. / 15., 1. / 5., 4. / 15., 5. / 15., 3. / 10.],
         )
-        .unwrap();
+            .unwrap();
 
         assert_eq!(l2.compute(&parameters), 301. / 120.);
         assert_arr_eq_approx!(l2.gradient(&parameters), expected_grad);
