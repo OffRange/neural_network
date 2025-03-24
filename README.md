@@ -27,9 +27,61 @@ cargo add --git https://github.com/OffRange/neural_network.git
 
 Yes, someone might actually use this. Stranger things have happened.
 
+You may also need to install `libfontconfig1-dev` as it is used by the plotters crate in some examples:
+
+```shell
+sudo apt install libfontconfig1-dev
+```
+
 ### Usage
 
-Um, yeah... about that. Still figuring out how the final API will look. Stay tuned or feel free to help out (please?).
+Below is a basic example demonstrating how to create, compile, train, and evaluate a neural network using this crate:
+
+```rust
+fn my_neural_network() {
+    // Initialize your training and test datasets with input data and corresponding labels.
+    let train_dataset = NNDataset::new(todo!("Input training data"), todo!("Input training labels"));
+    let test_dataset = NNDataset::new(todo!("Input test data"), todo!("Input test labels"));
+
+    // Define a sequential model with three layers.
+    let model = sequential![
+        // Input layer: transforms 2 inputs to 64 outputs using the He initializer.
+        Dense::new::<initializers::He>(2, 64),
+        ReLU::default(),
+
+        // Hidden layer: further transforms 64 inputs to 64 outputs.
+        Dense::new::<initializers::He>(64, 64),
+        ReLU::default(),
+
+        // Output layer: transforms 64 inputs to 10 outputs using the Xavier initializer,
+        // followed by a softmax activation for multi-class classification.
+        Dense::new::<initializers::Xavier>(64, 10),
+        Softmax::default(),
+    ];
+
+    // Configure the optimizer and loss function.
+    let optimizer = Adam::default();
+    let loss = CategoricalCrossentropy::default();
+
+    // Compile the model.
+    let mut model = model.compile(optimizer, loss);
+
+    // Train the model using the training dataset.
+    model.fit(
+        /* dataset = */ &train_dataset,
+        /* epochs = */ 300,
+        /* batch_size = */ 64,
+        /* shuffle = */ true,
+        /* print_every = */ 100,
+        /* metrics = */ &[Box::new(MultiClassAccuracy)],
+    );
+
+    // Evaluate the model using the test dataset.
+    let (predictions, test_loss) = model.evaluate(&test_dataset);
+}
+```
+
+For additional examples and more detailed usage, please check out the [examples](examples) directory.
 
 ### Contributing
 
