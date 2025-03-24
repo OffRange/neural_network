@@ -9,7 +9,7 @@ where
 
 impl<S, D> Argmax<D> for ArrayBase<S, D>
 where
-    S: ndarray::Data<Elem = f64>,
+    S: ndarray::Data<Elem=f64>,
     D: Dimension + ndarray::RemoveAxis,
 {
     fn argmax(&self, axis: Axis) -> Array<usize, D::Smaller> {
@@ -59,20 +59,10 @@ impl ToOneHot<Ix> for Array1<Ix> {
     }
 }
 
-#[macro_export]
-macro_rules! expect {
-    ($t:expr) => {
-        $t.expect(concat!(
-            stringify!($t),
-            " was not set. Please run the forward pass first."
-        ))
-    };
-}
-
 #[cfg(test)]
 mod tests {
     use super::{Argmax, ToOneHot};
-    use ndarray::{Array2, Axis, Ix, array};
+    use ndarray::{array, Array2, Axis, Ix};
 
     #[test]
     fn test_argmax() {
