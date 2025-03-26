@@ -1,7 +1,8 @@
+use crate::doc_cross_entropy;
 use crate::loss::Loss;
 use ndarray::{Array, Array2, Ix, Ix2};
 
-/// BinaryCrossEntropy computes the binary cross entropy loss and its gradient.
+/// Computes the binary cross entropy loss and its gradient.
 ///
 /// This loss function is typically used for binary classification tasks. It clamps
 /// the predicted probabilities to avoid numerical issues (e.g., taking the logarithm
@@ -11,9 +12,7 @@ pub struct BinaryCrossEntropy {
 }
 
 impl Default for BinaryCrossEntropy {
-    /// Creates a default instance of BinaryCrossEntropy.
-    ///
-    /// The default value for `clamp_epsilon` is set to 1e-7.
+    #[doc = doc_cross_entropy!(default BinaryCrossEntropy 1e-7)]
     #[inline(always)]
     fn default() -> Self {
         Self::new(1e-7)
@@ -21,16 +20,7 @@ impl Default for BinaryCrossEntropy {
 }
 
 impl BinaryCrossEntropy {
-    /// Creates a new instance of BinaryCrossEntropy with a specified clamp epsilon.
-    ///
-    /// # Arguments
-    ///
-    /// * `clamp_epsilon` - A small value to clamp predicted probabilities and avoid
-    ///   numerical instability (e.g., taking the logarithm of zero).
-    ///
-    /// # Returns
-    ///
-    /// A new `BinaryCrossEntropy` instance.
+    #[doc = doc_cross_entropy!(new BinaryCrossEntropy)]
     #[inline(always)]
     pub fn new(clamp_epsilon: f64) -> Self {
         Self { clamp_epsilon }
